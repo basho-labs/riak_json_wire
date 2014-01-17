@@ -1,0 +1,12 @@
+{application, riak_json_wire,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { riak_json_wire_app, []}},
+  {env, []}
+ ]}.

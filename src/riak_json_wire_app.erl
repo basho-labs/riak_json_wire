@@ -10,10 +10,14 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    Port = app_helper:get_env(riak_json_wire, port, 27017),
+    case rj_wire_config:is_enabled() of
+        true -> 
+            Port = rj_wire_config:port(),
 
-    {ok, _} = ranch:start_listener(riak_json_wire, 10,
-        ranch_tcp, [{port, Port}], rj_wire_protocol, []),
+            {ok, _} = ranch:start_listener(riak_json_wire, 10,
+            ranch_tcp, [{port, Port}], rj_wire_protocol, []);
+        _ -> ok
+    end,
 
     riak_json_wire_sup:start_link().
 

@@ -1,11 +1,12 @@
 {application, riak_json_wire,
  [
-  {description, ""},
+  {description, "Wire protocol interface for RiakJson"},
   {vsn, "1"},
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  ranch
                  ]},
   {mod, { riak_json_wire_app, []}},
   {env, []}

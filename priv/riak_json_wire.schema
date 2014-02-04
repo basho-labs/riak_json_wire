@@ -1,0 +1,23 @@
+%% @doc To enable RiakJson wire protocol interface set this 'on'.
+%% @datatype enum on, off
+{mapping, "riak_json_wire", "riak_json_wire.enabled", [
+  {default, on},
+  {datatype, {enum, [on, off]}}
+]}.
+
+{ translation,
+  "riak_json_wire.enabled",
+  fun(Conf) ->
+          Setting = cuttlefish:conf_get("riak_json_wire", Conf),
+          case Setting of
+              on -> true;
+              off -> false;
+              _Default -> false
+          end
+  end}.
+
+%% @doc riak_json_wire.port is a TCP port that the RiakJson Wire interface will bind to.
+{mapping, "riak_json_wire.port", "riak_json_wire.port", [
+  {default, 27017},
+  {datatype, integer}
+]}.

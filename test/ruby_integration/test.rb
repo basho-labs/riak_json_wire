@@ -1,11 +1,12 @@
 require 'mongo'
 
-mongo_client = MongoClient.new("localhost", 27017)
+#mongo_client = MongoClient.new("localhost", 27017)
+mongo_client = Mongo::Connection.new("localhost", 27017)
 
 # mongo_client.database_names     # lists all database names
 # mongo_client.database_info.each { |info| puts info.inspect }
 
-db = mongo_client.db("mydb")
+#db = mongo_client.db("mydb")
 
 # auth = db.authenticate(my_user_name, my_password)
 

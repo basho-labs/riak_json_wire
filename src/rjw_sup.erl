@@ -19,40 +19,26 @@
 %%
 %% -------------------------------------------------------------------
 
--module(riak_json_wire_app).
+-module(rjw_sup).
 
--behaviour(application).
+-behaviour(supervisor).
 
-%% Application callbacks
--export([start/2, stop/1]).
+%% API
+-export([start_link/0]).
+
+%% Supervisor callbacks
+-export([init/1]).
 
 %% ===================================================================
-%% Application callbacks
+%% API functions
 %% ===================================================================
 
-start(_StartType, _StartArgs) ->
-    case rjw_config:is_enabled() of
-        true ->
-            ensure_started(ranch),
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-            Port = rjw_config:port(),
+%% ===================================================================
+%% Supervisor callbacks
+%% ===================================================================
 
-            {ok, _} = ranch:start_listener(riak_json_wire, 100,
-                ranch_tcp, [{port, Port}, {max_connections, infinity}],
-                rjw_ranch_protocol, []
-            );
-        _ -> ok
-    end,
-
-    riak_json_wire_sup:start_link().
-
-stop(_State) ->
-    ok.
-
-ensure_started(App) ->
-    case application:start(App) of
-        ok ->
-            ok;
-        {error, {already_started, App}} ->
-            ok
-    end.
+init([]) ->
+    {ok, {{one_for_one, 10, 10}, []}}.

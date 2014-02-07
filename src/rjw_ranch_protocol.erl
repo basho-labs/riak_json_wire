@@ -137,4 +137,4 @@ respond([M | R],
 
     NewSocketRequestId = State#state.socket_request_id + 1,
 
-    respond(R, State#state{socket_request_id = NewSocketRequestId}).
+    respond(R, NewState#state{socket_request_id = NewSocketRequestId}).

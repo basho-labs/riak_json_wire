@@ -121,7 +121,9 @@ respond([M | R],
             lager:error("~p~n", [ErrMsg]),
             {#reply{documents = [{err, ErrMsg}]},
              State#state{last_error = ErrMsg}};
-        R -> {R, State}
+        R -> 
+            lager:debug("{R, State} = ~p~n", [{R, State}]),
+            {R, State}
     end,
 
     case Response of

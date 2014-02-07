@@ -19,7 +19,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rj_wire_config).
+-module(rjw_config).
 
 -export([
           is_enabled/0,

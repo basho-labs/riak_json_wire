@@ -1,4 +1,4 @@
 source 'https://rubygems.org'
 
-gem "mongo", :path => "/Users/andrewkerrigan/src/ruby/mongo-ruby-driver"
-#gem "mongo", :path => "./mongo-1.9.2.gem"
+gem "mongo"
+gem "bson_ext"

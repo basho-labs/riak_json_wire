@@ -109,7 +109,7 @@ respond_tcp(Reply, RequestId, State=#state{socket=Socket, transport=Transport}) 
 
 respond([], State) -> {ok, State};
 %% TODO move to admin or query dispatch?
-respond([{Db, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
+respond([{_, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
     lager:debug("Message: ~p~n", [M]),
     Docs = case E of
         <<>> -> [{ok, true, err, null}];

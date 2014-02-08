@@ -32,6 +32,6 @@ handle(Db, #insert{collection=C, documents=[Doc|R]}=Command) ->
     {Key, JDocument} = rjw_util:bsondoc_to_json(Doc),
 
     riak_json:store_document(binary_to_list(C), binary_to_list(Key), JDocument),
-    handle(Db, Command#insert{documents=[R]});
+    handle(Db, Command#insert{documents=R});
 handle(Db, #update{}=Command) -> noreply;
 handle(Db, #delete{}=Command) -> noreply.

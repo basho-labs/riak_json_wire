@@ -4,8 +4,8 @@ require 'mongo'
 puts "-------------- Connecting"
 mongo_client = Mongo::MongoClient.new("localhost", 27017)
 
-p mongo_client.database_names
-mongo_client.database_info.each { |info| puts info.inspect }
+# p mongo_client.database_names
+# mongo_client.database_info.each { |info| puts info.inspect }
 
 db = mongo_client.db("testdb")
 
@@ -13,7 +13,9 @@ db = mongo_client.db("testdb")
 
 coll = db.collection("testCollection")
 
-doc = {"name" => "MongoDB", "type" => "database", "count" => 1, "info" => {"x" => 203, "y" => '102'}}
+# nested docs don't work yet apparently...
+# doc = {"name" => "MongoDB", "type" => "database", "count" => 1, "info" => {"x" => 203, "y" => '102'}}
+doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
 
 id = coll.insert(doc)
 

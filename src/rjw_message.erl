@@ -217,7 +217,6 @@ query_size(Op, <<?get_int32(Skip), ?get_int32(Batch), R/binary>>) ->
     {Op#query{skip = Skip, batchsize = Batch}, R}.
 
 query_sel(Op, Bin) ->
-    lager:debug("Selector Binary: ~p~n", [Bin]),
     {Sel, R} = bson_binary:get_document(Bin),
     {Op#query{selector = Sel}, R}.
 

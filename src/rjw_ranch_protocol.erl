@@ -54,7 +54,6 @@ start_link(Ref, Socket, Transport, Opts) ->
 init([]) -> {ok, undefined}.
 
 init(Ref, Socket, Transport, _Opts = []) ->
-    lager:debug("Ref: ~p, Socket: ~p, Transport: ~p~n", [Ref, Socket, Transport]),
     ok = proc_lib:init_ack({ok, self()}),
     ok = ranch:accept_ack(Ref),
     ok = Transport:setopts(Socket, [{active, once}]),
@@ -64,26 +63,19 @@ init(Ref, Socket, Transport, _Opts = []) ->
 
 handle_info({tcp, Socket, Data}, State=#state{
         socket=Socket}) ->
-    lager:debug("Data: ~p~n", [Data]),
 
     {Messages, _} = rjw_message:get_messages(Data),
     {ok, NewState} = respond(Messages, State),
 
     {noreply, NewState, ?TIMEOUT};
 handle_info({tcp_closed, _Socket}, State) ->
-    lager:debug("tcp_closed, State: ~p~n", [State]),
     {stop, normal, State};
 handle_info({tcp_error, _, Reason}, State) ->
-    lager:debug("tcp_error, State: ~p, Reason: ~n", [State, Reason]),
     {stop, Reason, State};
 handle_info(timeout, State) ->
-    lager:debug("timeout, State: ~p~n", [State]),
     {stop, normal, State};
 handle_info(_Info, State) ->
     {stop, normal, State}.
-
-handle_call({get_last_error}, _, State) ->
-    {reply, State#state.last_error, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -99,44 +91,47 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%% =================================================== internal functions
 
-error_bin(Str, Args) ->
-    list_to_binary(lists:flatten(io_lib:format(Str, Args))).
+update_state(ok, _, State) -> State;
+update_state(Errors, M, State) ->
+    lager:error("Errors: ~p, Message: ~p~n", [Errors, M]),
+    State#state{last_error = Errors}.
+
+respond_tcp(Reply, RequestId, State=#state{socket=Socket, transport=Transport}) ->
+    Transport:setopts(Socket, [{active, once}]),
+    BsonResponse = rjw_message:put_reply(
+        State#state.socket_request_id, 
+        RequestId, Reply
+    ),
+    Transport:send(Socket, <<
+        ?put_int32(byte_size(BsonResponse)+4),
+        BsonResponse/binary
+    >>).
 
 respond([], State) -> {ok, State};
-
-respond([M | R],
-        State=#state{socket=Socket, transport=Transport}) ->
-    Transport:setopts(Socket, [{active, once}]),
-
-    {Db, Command, RequestId} = M,
-
-    {Response, NewState} = case rjw_message_dispatch:send(Db,Command) of
-        {error, undefined} -> 
-            ErrMsg = error_bin("Unhandled message: ~p~n", [M]),
-            lager:error("~p~n", [ErrMsg]),
-            {#reply{documents = [{err, ErrMsg}]},
-             State#state{last_error = ErrMsg}};
-        {error, R} -> 
-            ErrMsg = error_bin("Error occurred: ~p.", [R]),
-            lager:error("~p~n", [ErrMsg]),
-            {#reply{documents = [{err, ErrMsg}]},
-             State#state{last_error = ErrMsg}};
-        R -> 
-            lager:debug("{R, State} = ~p~n", [{R, State}]),
-            {R, State}
+%% TODO move to admin or query dispatch?
+respond([{Db, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
+    lager:debug("Message: ~p~n", [M]),
+    Docs = case E of
+        <<>> -> [{ok, true, err, null}];
+        Error -> [{ok, true, err, Error}]
     end,
 
-    case Response of
-        {noreply} -> ok;
-        #reply{}=R ->
-            BsonResponse = rjw_message:put_reply(State#state.socket_request_id, RequestId, R),
-            Transport:send(Socket, <<
-                ?put_int32(byte_size(BsonResponse)+4), 
-                BsonResponse/binary
-            >>);
-        R -> lager:error("Failed to identify response: ~p~n", [R])
-    end,
+    respond_tcp(#reply{documents=Docs}, RequestId, State#state{last_error = <<>>}),
 
     NewSocketRequestId = State#state.socket_request_id + 1,
+    respond(R, State#state{socket_request_id = NewSocketRequestId});
+respond([M | R], State) ->
+    lager:debug("Message: ~p~n", [M]),
+    {Db, Command, RequestId} = M,
 
+    Errors = case rjw_message_dispatch:send(Db,Command) of
+        {error, undefined} -> <<"Operation not supported.">>;
+        {error, Reason} -> Reason;
+        noreply -> ok;
+        #reply{}=Reply -> respond_tcp(Reply, RequestId, State), ok;
+        Reply -> lager:error("Failed to identify response: ~p~n", [Reply]), ok
+    end,
+
+    NewState = update_state(Errors, M, State),
+    NewSocketRequestId = State#state.socket_request_id + 1,
     respond(R, NewState#state{socket_request_id = NewSocketRequestId}).

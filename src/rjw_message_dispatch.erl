@@ -33,21 +33,20 @@
 %%% =================================================== external api
 
 %% admin commands
-send(<<"admin">>, Command) ->
-    rjw_command_admin:handle(Command);
+send(<<"admin">>, Command) -> rjw_command_admin:handle(Command);
 
-send(Db, #insert{}) -> {error, undefined};
+%% schema commands
+send(<<"schema:", Db/binary>>, Command) -> rjw_command_schema:handle(Db, Command);
 
-%% TODO move to admin or query dispatch?
-send(Db, #query{selector= <<"$cmd">>}=Command) ->
-    Docs = [{ok, true, err, gen_server:call(rjw_ranch_protocol, {getlasterror})}],
-    #reply{documents = Docs};
+%% document commands
+send(Db, #insert{}=Command) -> rjw_command_document:handle(Db, Command);
+send(Db, #update{}=Command) -> rjw_command_document:handle(Db, Command);
+send(Db, #delete{}=Command) -> rjw_command_document:handle(Db, Command);
 
-% 2014-02-06 17:45:59.341 [error] <0.2544.0>@rjw_message_dispatch:send:41 Undefined Message: {<<"testdb">>,{insert,<<"testCollection">>,[{'_id',<<82,244,16,167,177,41,125,7,81,0,0,1>>,name,<<"MongoDB">>,type,<<"database">>,count,1,info,{x,203,y,<<"102">>}}]},4}
-% 2014-02-06 17:45:59.341 [error] <0.2544.0>@rjw_ranch_protocol:respond:106 Unhandled Message: {<<"testdb">>,{insert,<<"testCollection">>,[{'_id',<<82,244,16,167,177,41,125,7,81,0,0,1>>,name,<<"MongoDB">>,type,<<"database">>,count,1,info,{x,203,y,<<"102">>}}]},4}
-% 2014-02-06 17:45:59.341 [error] <0.2544.0>@rjw_message_dispatch:send:41 Undefined Message: {<<"testdb">>,{query,false,false,false,false,<<"$cmd">>,0,-1,{getlasterror,1,j,false,fsync,false,wtimeout,null},[]},5}
-% 2014-02-06 17:45:59.341 [error] <0.2544.0>@rjw_ranch_protocol:respond:106 Unhandled Message: {<<"testdb">>,{query,false,false,false,false,<<"$cmd">>,0,-1,{getlasterror,1,j,false,fsync,false,wtimeout,null},[]},5}
+%% query commands
+send(Db, #query{}=Command) -> rjw_command_query:handle(Db, Command);
 
+%% unhandled commands
 send(_, _) -> {error, undefined}.
 
 %%% =================================================== tests

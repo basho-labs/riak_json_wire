@@ -26,6 +26,7 @@
     ]).
 
 -include("rjw_message.hrl").
+-include_lib("riak_json/include/riak_json.hrl").
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -145,7 +146,7 @@ handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}) ->
 % collection names    Returns a document that lists all collections for a database
 % {<<"testdb">>,{query,false,false,false,false,<<"system.namespaces">>,0,0,{},[]},6}
 handle(Db, #query{collection= <<"system.namespaces">>}) -> 
-    Collections = collections(Db),
+    Collections = riak_json:get_collections(Db),
     lager:debug("Types: ~p~n", [Collections]),
     #reply{documents = Collections};
 
@@ -209,31 +210,3 @@ handle(Db, #query{collection= <<"system.namespaces">>}) ->
 
 %% Undefined Command
 handle(_, _) -> {error, undefinedreply}.
-
-collections(Db) ->
-    collections(Db, byte_size(Db), bucket_type_list(), []).
-
-collections(_, _, [], Cols) ->
-    lists:reverse(Cols);
-collections(Db, Size, [{_, false, _}| R], Cols) ->
-    collections(Db, Size, R, Cols);
-collections(Db, Size, [{Name, true, _}| R], Cols) ->
-    case Name of
-        <<Db:Size/binary, $.:8, _/binary>> -> collections(Db, Size, R, [{name, Name} | Cols]);
-        _ -> collections(Db, Size, R, Cols)
-    end.
-
-bucket_type_list() ->
-    It = riak_core_bucket_type:iterator(),
-    bucket_type_list(It, []).
-
-bucket_type_list(It, Types) ->
-    case riak_core_bucket_type:itr_done(It) of
-        true ->
-            riak_core_bucket_type:itr_close(It),
-            lists:reverse(Types);
-        false ->
-            {Type, Props} = riak_core_bucket_type:itr_value(It),
-            IsActive = proplists:get_value(active, Props, false),
-            bucket_type_list(riak_core_bucket_type:itr_next(It), [{Type, IsActive, Props} | Types])
-    end.

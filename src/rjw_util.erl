@@ -49,7 +49,7 @@ bsondoc_to_json(Doc) ->
     DocList = bson:fields(Doc),
     {Key} = proplists:get_value('_id', DocList),
     WithoutId = proplists:delete('_id', DocList),
-    {bsonid_to_binary(Key), jsonx:encode(doclist_to_json(WithoutId, []))}.
+    {Key, jsonx:encode(doclist_to_json(WithoutId, []))}.
 
 doclist_to_json([], Doclist) ->
     lists:reverse(Doclist);
@@ -75,8 +75,6 @@ doclist_to_json([{K, Doc} | R], Doclist)->
 bsondoc_test() ->
     Input = {'_id',{<<82,245,142,32,177,41,125,173,127,0,0,1>>},name,<<"MongoDB">>,type,<<"database">>,count,1,info,{x,203,y,<<"102">>}},
     Expected = {<<82,245,142,32,177,41,125,173,127,0,0,1>>, <<"{\"name\":\"MongoDB\",\"type\":\"database\",\"count\":1,\"info\":{\"x\":203,\"y\":\"102\"}}">>},
-
-    ?debugFmt("~p", [hexencode(<<82,245,142,32,177,41,125,173,127,0,0,1>>)]),
 
     ?assertEqual(Expected, bsondoc_to_json(Input)).
 -endif.

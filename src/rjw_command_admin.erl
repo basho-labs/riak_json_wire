@@ -22,10 +22,14 @@
 -module(rjw_command_admin).
 
 -export([
-    handle/1
+    handle/2
     ]).
 
 -include("rjw_message.hrl").
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
 
 %%% =================================================== external api
 
@@ -74,9 +78,9 @@
 % applyOps    Internal command that applies oplog entries to the current data set.
 
 % isMaster    Displays information about this member’s role in the replica set, including whether it is the master.
-handle(#query{collection= <<"$cmd">>, selector= {ismaster, 1}}=Collection) ->
-    handle(Collection#query{selector={isMaster, 1}});
-handle(#query{collection= <<"$cmd">>, selector= {isMaster, 1}}) -> 
+handle(_Db, #query{collection= <<"$cmd">>, selector= {ismaster, 1}}=Collection) ->
+    handle(_Db, Collection#query{selector={isMaster, 1}});
+handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}) -> 
     Docs = [{ok, true, ismaster, 1}],
     #reply{documents = Docs};
 
@@ -134,9 +138,17 @@ handle(#query{collection= <<"$cmd">>, selector= {isMaster, 1}}) ->
 %% Diagnostic Commands
 
 % listDatabases   Returns a document that lists all databases and returns basic database statistics.
-handle(#query{collection= <<"$cmd">>, selector= {listDatabases,1}}) ->
+handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}) ->
     Docs = [{ok, true, databases, [{name, <<"admin">>, sizeOnDisk, 0, empty, true},{name, <<"riak">>, sizeOnDisk, 0, empty, false}]}],
     #reply{documents = Docs};
+
+% collection names    Returns a document that lists all collections for a database
+% {<<"testdb">>,{query,false,false,false,false,<<"system.namespaces">>,0,0,{},[]},6}
+handle(Db, #query{collection= <<"system.namespaces">>}) -> 
+    Collections = collections(Db),
+    lager:debug("Types: ~p~n", [Collections]),
+    #reply{documents = Collections};
+
 
 % dbHash  Internal command to support sharding.
 % driverOIDTest   Internal command that converts an ObjectID to a string to support tests.
@@ -196,4 +208,32 @@ handle(#query{collection= <<"$cmd">>, selector= {listDatabases,1}}) ->
 % configureFailPoint  Internal command for testing. Configures failure points.
 
 %% Undefined Command
-handle(_) -> {error, undefined}.
+handle(_, _) -> {error, undefinedreply}.
+
+collections(Db) ->
+    collections(Db, byte_size(Db), bucket_type_list(), []).
+
+collections(_, _, [], Cols) ->
+    lists:reverse(Cols);
+collections(Db, Size, [{_, false, _}| R], Cols) ->
+    collections(Db, Size, R, Cols);
+collections(Db, Size, [{Name, true, _}| R], Cols) ->
+    case Name of
+        <<Db:Size/binary, $.:8, _/binary>> -> collections(Db, Size, R, [{name, Name} | Cols]);
+        _ -> collections(Db, Size, R, Cols)
+    end.
+
+bucket_type_list() ->
+    It = riak_core_bucket_type:iterator(),
+    bucket_type_list(It, []).
+
+bucket_type_list(It, Types) ->
+    case riak_core_bucket_type:itr_done(It) of
+        true ->
+            riak_core_bucket_type:itr_close(It),
+            lists:reverse(Types);
+        false ->
+            {Type, Props} = riak_core_bucket_type:itr_value(It),
+            IsActive = proplists:get_value(active, Props, false),
+            bucket_type_list(riak_core_bucket_type:itr_next(It), [{Type, IsActive, Props} | Types])
+    end.

@@ -58,7 +58,7 @@
     collection :: collection(),
     skip = 0 :: skip(),
     batchsize = 0 :: batchsize(),
-    selector :: selector(),
+    selector = {} :: selector(),
     projector = [] :: projector() }).
 
 -type projector() :: bson:document().

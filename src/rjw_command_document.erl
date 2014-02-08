@@ -28,10 +28,10 @@
 -include("rjw_message.hrl").
 
 handle(_, #insert{collection=_, documents=[]}) -> noreply;
-handle(Db, #insert{collection=C, documents=[Doc|R]}=Command) ->
+handle(Db, #insert{collection=Collection, documents=[Doc|R]}=Command) ->
     {Key, JDocument} = rjw_util:bsondoc_to_json(Doc),
 
-    riak_json:store_document(binary_to_list(C), binary_to_list(Key), JDocument),
+    riak_json:store_document(<<Db/binary, $.:8, Collection/binary>>, Key, JDocument),
     handle(Db, Command#insert{documents=R});
-handle(Db, #update{}=Command) -> noreply;
-handle(Db, #delete{}=Command) -> noreply.
+handle(_Db, #update{}=_Command) -> noreply;
+handle(_Db, #delete{}=_Command) -> noreply.

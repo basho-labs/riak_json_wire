@@ -125,6 +125,9 @@ respond([M | R], State) ->
     {Db, Command, RequestId} = M,
 
     Errors = case rjw_message_dispatch:send(Db,Command) of
+        {error, undefinedreply} -> 
+            Reply = #reply{documents = [{ok, false, err, <<"Operation not supported.">>}]},
+            respond_tcp(Reply, RequestId, State), <<"Operation not supported.">>;
         {error, undefined} -> <<"Operation not supported.">>;
         {error, Reason} -> Reason;
         noreply -> ok;

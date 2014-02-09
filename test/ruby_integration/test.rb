@@ -15,14 +15,15 @@ coll = db.collection("testCollection1")
 
 # nested docs don't work yet apparently...
 # doc = {"name" => "MongoDB", "type" => "database", "count" => 1, "info" => {"x" => 203, "y" => '102'}}
-# doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
 
-# id = coll.insert(doc)
+id = coll.insert(doc)
+p id
 
-# db.collection("testCollection2").insert(doc)
-# db.collection("testCollection3").insert(doc)
+db.collection("testCollection2").insert(doc)
+db.collection("testCollection3").insert(doc)
 
-# mongo_client.db("testdb1").collection("testCollection1").insert(doc)
+mongo_client.db("testdb1").collection("testCollection1").insert(doc)
 
 p db.collection_names # ["testCollection", "system.indexes"]
 p mongo_client.db("testdb1").collection_names

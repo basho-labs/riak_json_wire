@@ -39,7 +39,7 @@ start(_StartType, _StartArgs) ->
 
             {ok, _} = ranch:start_listener(riak_json_wire, 100,
                 ranch_tcp, [{port, Port}, {max_connections, infinity}],
-                rjw_ranch_protocol, []
+                rjw_server, []
             );
         _ -> ok
     end,

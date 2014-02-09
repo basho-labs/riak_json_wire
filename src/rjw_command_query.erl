@@ -22,19 +22,19 @@
 -module(rjw_command_query).
 
 -export([
-    handle/2
+    handle/3
     ]).
 
 -include("rjw_message.hrl").
 
-handle(_Db, #query{}=_Command) -> #reply{documents = [{ok, true}]}.
+handle(_Db, #query{}=_Command, Session) -> {#reply{documents = [{ok, true}]}, Session}.
 
 % jsonx:decode(<<"{\"name\":\"Ivan\",\"age\":33,\"phones\":[3332211,4443322]}">>, [{format, proplist}]).
 % [{<<"name">>,<<"Ivan">>},
 %  {<<"age">>,33},
 %  {<<"phones">>,[3332211,4443322]}]
 
-% find one
+% find (the last) one
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,-1,{},[]},4}
 
 % find one by id

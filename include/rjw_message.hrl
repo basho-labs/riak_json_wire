@@ -29,6 +29,11 @@
 
 -type selector() :: bson:document().
 
+-record (session, {
+    last_errors = [],
+    last_inserts = []
+    }).
+
 -record (insert, {
     collection :: collection(),
     documents :: [bson:document()] }).

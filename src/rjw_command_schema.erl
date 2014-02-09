@@ -22,11 +22,11 @@
 -module(rjw_command_schema).
 
 -export([
-    handle/2
+    handle/3
     ]).
 
 -include("rjw_message.hrl").
 
-handle(Db, #insert{}=Command) -> noreply;
-handle(Db, #update{}=Command) -> noreply;
-handle(Db, #delete{}=Command) -> noreply.
+handle(_Db, #insert{}=_Command, Session) -> {noreply, Session};
+handle(_Db, #update{}=_Command, Session) -> {noreply, Session};
+handle(_Db, #delete{}=_Command, Session) -> {noreply, Session}.

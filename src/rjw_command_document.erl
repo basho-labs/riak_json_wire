@@ -22,16 +22,18 @@
 -module(rjw_command_document).
 
 -export([
-    handle/2
+    handle/3
     ]).
 
 -include("rjw_message.hrl").
 
-handle(_, #insert{collection=_, documents=[]}) -> noreply;
-handle(Db, #insert{collection=Collection, documents=[Doc|R]}=Command) ->
+handle(_, #insert{collection=_, documents=[]}, Session) -> 
+	{noreply, Session};
+handle(Db, #insert{collection=Collection, documents=[Doc|R]}=Command, Session) ->
     {Key, JDocument} = rjw_util:bsondoc_to_json(Doc),
 
     riak_json:store_document(<<Db/binary, $.:8, Collection/binary>>, Key, JDocument),
-    handle(Db, Command#insert{documents=R});
-handle(_Db, #update{}=_Command) -> noreply;
-handle(_Db, #delete{}=_Command) -> noreply.
+    NewSession = rjw_server:append_last_insert(Db, Collection, Key, Session),
+    handle(Db, Command#insert{documents=R}, NewSession);
+handle(_Db, #update{}=_Command, Session) -> {noreply, Session};
+handle(_Db, #delete{}=_Command, Session) -> {noreply, Session}.

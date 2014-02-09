@@ -19,7 +19,7 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rjw_ranch_protocol).
+-module(rjw_server).
 -behaviour(gen_server).
 -behaviour(ranch_protocol).
 
@@ -28,6 +28,13 @@
 
 %% API.
 -export([start_link/4]).
+-export([
+    set_last_error/3,
+    get_last_error/2,
+    append_last_insert/4,
+    set_last_insert/4,
+    get_last_insert/3
+    ]).
 
 %% gen_server.
 -export([init/1]).
@@ -40,9 +47,30 @@
 
 -define(TIMEOUT, 60000).
 
--record(state, {socket, transport, socket_request_id = 0, last_error = <<>>}).
+-record(state, {
+    socket, 
+    transport, 
+    socket_request_id = 0,
+    session = [] % list of database records with session info
+    }).
 
 %%% =================================================== external api
+
+set_last_error(Db, E, Session) ->
+    NewErrors = proplist_update(Db, E, Session#session.last_errors),
+    Session#session{last_errors = NewErrors}.
+get_last_error(Db, Session) -> 
+    proplists:get_value(Db, Session#session.last_errors, <<>>).
+
+append_last_insert(Db, Coll, Insert, Session) ->
+    NewInserts = Session#session.last_inserts ++ [{<<Db/binary, $.:8, Coll/binary>>, Insert}],
+    Session#session{last_inserts = NewInserts}.
+set_last_insert(Db, Coll, Insert, Session) ->
+    NewInserts = proplist_update(<<Db/binary, $.:8, Coll/binary>>, Insert, Session#session.last_inserts),
+    Session#session{last_inserts = NewInserts}.
+get_last_insert(Db, Coll, Session) ->
+    proplists:get_value(<<Db/binary, $.:8, Coll/binary>>, Session#session.last_inserts, []).
+
 
 start_link(Ref, Socket, Transport, Opts) ->
     proc_lib:start_link(?MODULE, init, [Ref, Socket, Transport, Opts]).
@@ -91,11 +119,6 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%% =================================================== internal functions
 
-update_state(ok, _, State) -> State;
-update_state(Errors, M, State) ->
-    lager:error("Errors: ~p, Message: ~p~n", [Errors, M]),
-    State#state{last_error = Errors}.
-
 respond_tcp(Reply, RequestId, State=#state{socket=Socket, transport=Transport}) ->
     Transport:setopts(Socket, [{active, once}]),
     BsonResponse = rjw_message:put_reply(
@@ -108,33 +131,38 @@ respond_tcp(Reply, RequestId, State=#state{socket=Socket, transport=Transport}) 
     >>).
 
 respond([], State) -> {ok, State};
-%% TODO move to admin or query dispatch?
-respond([{_, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
-    lager:debug("Message: ~p~n", [M]),
-    Docs = case E of
-        <<>> -> [{ok, true, err, null}];
-        Error -> [{ok, true, err, Error}]
-    end,
-
-    respond_tcp(#reply{documents=Docs}, RequestId, State#state{last_error = <<>>}),
-
-    NewSocketRequestId = State#state.socket_request_id + 1,
-    respond(R, State#state{socket_request_id = NewSocketRequestId});
 respond([M | R], State) ->
     lager:debug("Message: ~p~n", [M]),
     {Db, Command, RequestId} = M,
 
-    Errors = case rjw_message_dispatch:send(Db,Command) of
-        {error, undefinedreply} -> 
+    Session0 = State#state.session,
+
+    Session1 = case rjw_message_dispatch:send(Db,Command,Session0) of
+        {error, undefinedreply, S} -> 
             Reply = #reply{documents = [{ok, false, err, <<"Operation not supported.">>}]},
-            respond_tcp(Reply, RequestId, State), <<"Operation not supported.">>;
-        {error, undefined} -> <<"Operation not supported.">>;
-        {error, Reason} -> Reason;
-        noreply -> ok;
-        #reply{}=Reply -> respond_tcp(Reply, RequestId, State), ok;
-        Reply -> lager:error("Failed to identify response: ~p~n", [Reply]), ok
+            respond_tcp(Reply, RequestId, State), 
+            set_last_error(Db, <<"Operation not supported.">>, S);
+        {error, undefined, S} -> 
+            set_last_error(Db, <<"Operation not supported.">>, S);
+        {error, Reason, S} -> 
+            set_last_error(Db, Reason, S);
+        {noreply, S} -> 
+            ok, S;
+        {#reply{}=Reply, S} -> 
+            respond_tcp(Reply, RequestId, State), S;
+        Reply -> 
+            lager:error("Failed to identify response: ~p~n", [Reply]), Session0
     end,
 
-    NewState = update_state(Errors, M, State),
     NewSocketRequestId = State#state.socket_request_id + 1,
-    respond(R, NewState#state{socket_request_id = NewSocketRequestId}).
+    respond(R, State#state{
+        socket_request_id = NewSocketRequestId, 
+        session = Session1
+        }).
+
+proplist_update(Key, Val, Props) ->
+    Props1 = case proplists:is_defined(Key, Props) of
+        true -> proplists:delete(Key, Props);
+        false -> Props
+    end,
+    [{Key, Val} | Props1].

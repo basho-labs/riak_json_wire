@@ -21,7 +21,7 @@
 
 -module(rjw_message_dispatch).
 -export([
-    send/2
+    send/3
     ]).
 
 -ifdef(TEST).
@@ -33,24 +33,28 @@
 %%% =================================================== external api
 
 %% admin commands
-send(<<"admin">>=Db, Command) -> 
-    rjw_command_admin:handle(Db, Command);
-send(Db, #query{collection= <<"system.", _/binary>>}=Command) -> 
-    rjw_command_admin:handle(Db, Command);
+send(<<"admin">>=Db, Command, Session) -> 
+    rjw_command_admin:handle(Db, Command, Session);
+send(Db, #query{collection= <<"system.", _/binary>>}=Command, Session) -> 
+    rjw_command_admin:handle(Db, Command, Session);
 
 %% schema commands
-send(<<"schema:", Db/binary>>, Command) -> rjw_command_schema:handle(Db, Command);
+send(<<"schema:", Db/binary>>, Command, Session) -> rjw_command_schema:handle(Db, Command, Session);
 
 %% document commands
-send(Db, #insert{}=Command) -> rjw_command_document:handle(Db, Command);
-send(Db, #update{}=Command) -> rjw_command_document:handle(Db, Command);
-send(Db, #delete{}=Command) -> rjw_command_document:handle(Db, Command);
+send(Db, #insert{}=Command, Session) -> 
+    NewSession = rjw_server:set_last_insert(Db, Command#insert.collection, [], Session),
+    rjw_command_document:handle(Db, Command, NewSession);
+send(Db, #update{}=Command, Session) -> rjw_command_document:handle(Db, Command, Session);
+send(Db, #delete{}=Command, Session) -> rjw_command_document:handle(Db, Command, Session);
 
 %% query commands
-send(Db, #query{}=Command) -> rjw_command_query:handle(Db, Command);
+send(Db, #query{}=Command, Session) -> rjw_command_query:handle(Db, Command, Session);
 
 %% unhandled commands
-send(_, _) -> {error, undefined}.
+send(Db, Command, Session) -> 
+    lager:error("Unhandled Command: ~p on Db: ~n", [Command, Db]),
+    {noreply, rjw_server:set_last_error(Db, <<"Operation not supported.">>, Session)}.
 
 %%% =================================================== tests
 
@@ -64,7 +68,7 @@ ismaster_test() ->
     ?assertEqual(1, RequestId),
     ?assertEqual(<<"admin">>, Db),
 
-    Response = send(Db, Op),
+    {Response, _} = send(Db, Op, #session{}),
 
     ?assertEqual([{ok,true,ismaster,1}], Response#reply.documents).
 

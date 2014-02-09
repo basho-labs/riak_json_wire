@@ -22,7 +22,7 @@
 -module(rjw_command_admin).
 
 -export([
-    handle/2
+    handle/3
     ]).
 
 -include("rjw_message.hrl").
@@ -53,6 +53,26 @@
 % findAndModify   Returns and modifies a single document.
 % text    Performs a text search.
 % getLastError    Returns the success status of the last operation.
+
+
+
+
+% respond([{_, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
+%     lager:debug("Message: ~p~n", [M]),
+%     Docs = case E of
+%         <<>> -> [{ok, true, err, null}];
+%         Error -> [{ok, true, err, Error}]
+%     end,
+
+%     respond_tcp(#reply{documents=Docs}, RequestId, State#state{last_error = <<>>}),
+
+%     NewSocketRequestId = State#state.socket_request_id + 1,
+%     respond(R, State#state{socket_request_id = NewSocketRequestId});
+
+
+
+
+
 % getPrevError    Returns status document containing all errors since the last resetError command.
 % resetError  Resets the last error status.
 % eval    Runs a JavaScript function on the database server.
@@ -79,11 +99,11 @@
 % applyOps    Internal command that applies oplog entries to the current data set.
 
 % isMaster    Displays information about this member’s role in the replica set, including whether it is the master.
-handle(_Db, #query{collection= <<"$cmd">>, selector= {ismaster, 1}}=Collection) ->
-    handle(_Db, Collection#query{selector={isMaster, 1}});
-handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}) -> 
+handle(_Db, #query{collection= <<"$cmd">>, selector= {ismaster, 1}}=Collection, Session) ->
+    handle(_Db, Collection#query{selector={isMaster, 1}}, Session);
+handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}, Session) -> 
     Docs = [{ok, true, ismaster, 1}],
-    #reply{documents = Docs};
+    {#reply{documents = Docs}, Session};
 
 % getoptime   Internal command to support replication, returns the optime.
 
@@ -139,16 +159,16 @@ handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}) ->
 %% Diagnostic Commands
 
 % listDatabases   Returns a document that lists all databases and returns basic database statistics.
-handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}) ->
+handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}, Session) ->
     Docs = [{ok, true, databases, [{name, <<"admin">>, sizeOnDisk, 0, empty, true},{name, <<"riak">>, sizeOnDisk, 0, empty, false}]}],
-    #reply{documents = Docs};
+    {#reply{documents = Docs}, Session};
 
 % collection names    Returns a document that lists all collections for a database
 % {<<"testdb">>,{query,false,false,false,false,<<"system.namespaces">>,0,0,{},[]},6}
-handle(Db, #query{collection= <<"system.namespaces">>}) -> 
+handle(Db, #query{collection= <<"system.namespaces">>}, Session) -> 
     Collections = riak_json:get_collections(Db),
     lager:debug("Types: ~p~n", [Collections]),
-    #reply{documents = Collections};
+    {#reply{documents = Collections}, Session};
 
 
 % dbHash  Internal command to support sharding.
@@ -208,5 +228,7 @@ handle(Db, #query{collection= <<"system.namespaces">>}) ->
 % skewClockCommand    Internal command. Do not call this command directly.
 % configureFailPoint  Internal command for testing. Configures failure points.
 
-%% Undefined Command
-handle(_, _) -> {error, undefinedreply}.
+%% Unhandled Command
+handle(Db, Command, Session) -> 
+    lager:error("Unhandled Command: ~p on Db: ~n", [Command, Db]),
+    {#reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.

@@ -27,29 +27,21 @@
 
 -include("rjw_message.hrl").
 
-% handle(_Db, #query{}=_Command, Session) ->
-%     {#reply{documents = [{ok, true}]}, Session};
-
 % find (the last) one
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     Key = rjw_server:get_last_insert(Db, Coll, Session),
-    % get_objects(BucketKeyList) %[{Bucket, Key}]
     JDocument = list_to_binary(riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key)),
-    % translate jdoc to bdoc + add id
-    {#reply{documents = [JDocument]}, Session};
-
-% for decoding documents:
-% jsonx:decode(<<"{\"name\":\"Ivan\",\"age\":33,\"phones\":[3332211,4443322]}">>, [{format, proplist}]).
-% [{<<"name">>,<<"Ivan">>},
-%  {<<"age">>,33},
-%  {<<"phones">>,[3332211,4443322]}]
+    {#reply{documents = [rjw_util:json_to_bsondoc(Key, JDocument)]}, Session};
 
 % find one by id
-% {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{'_id',{<<82,245,202,253,177,41,125,100,219,0,0,1>>}},[]},4}
+handle(Db, #query{collection=Coll, selector={'_id',{Key}}}, Session) ->
+    JDocument = list_to_binary(riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key)),
+    {#reply{documents = [rjw_util:json_to_bsondoc(Key, JDocument)]}, Session};
 
 % find one by i field
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{i,71},[]},4}
 
+    % get_objects(BucketKeyList) %[{Bucket, Key}]
 % find all and create a cursor
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{},[]},4}
 

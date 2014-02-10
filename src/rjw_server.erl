@@ -142,14 +142,6 @@ respond([M | R], State) ->
     lager:debug("Message: ~p, Session: ~p~n", [M, Session0]),
 
     Session1 = case rjw_message_dispatch:send(Db,Command,Session0) of
-        {error, undefinedreply, S} -> 
-            Reply = #reply{documents = [{ok, false, err, <<"Operation not supported.">>}]},
-            respond_tcp(Reply, RequestId, State), 
-            set_last_error(Db, <<"Operation not supported.">>, S);
-        {error, undefined, S} -> 
-            set_last_error(Db, <<"Operation not supported.">>, S);
-        {error, Reason, S} -> 
-            set_last_error(Db, Reason, S);
         {noreply, S} -> 
             ok, S;
         {#reply{}=Reply, S} -> 

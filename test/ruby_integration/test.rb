@@ -13,7 +13,7 @@ db = mongo_client.db("testdb")
 
 coll = db.collection("testCollection1")
 
-# nested docs don't work yet apparently...
+# nested docs don't work in RJ yet apparently for schema inferral anyway...
 # doc = {"name" => "MongoDB", "type" => "database", "count" => 1, "info" => {"x" => 203, "y" => '102'}}
 doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
 
@@ -29,12 +29,11 @@ p db.collection_names # ["testCollection", "system.indexes"]
 p mongo_client.db("testdb1").collection_names
 
 p coll.find_one # { "_id" => BSON::ObjectId('4f7b1ea6e4d30b35c9000001'), "name"=>"MongoDB", "type"=>"database", "count"=>1, "info"=>{"x"=>203, "y"=>"102"}}
+p coll.find("_id" => id).to_a
 
 # coll.find.each { |row| puts row.inspect }
 
 # puts coll.find.to_a
-
-# coll.find("_id" => id).to_a
 
 # coll.find("i" => 71).to_a # {"_id"=>BSON::ObjectId('4f7b20b4e4d30b35c9000049'), "i"=>71}
 

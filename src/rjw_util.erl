@@ -23,7 +23,8 @@
 
 -export([
     % bsonid_to_binary/1,
-    bsondoc_to_json/1
+    bsondoc_to_json/1,
+    json_to_bsondoc/2
     ]).
 
 -include_lib("bson/include/bson_binary.hrl").
@@ -44,6 +45,21 @@
 % bsonid_to_binary(null) ->
 %     iolist_to_binary("UUID:" ++
 %         hexencode(list_to_binary(riak_core_util:unique_id_62()))).
+
+json_to_bsondoc(Key, Json) ->
+    Proplist = jsonx:decode(Json, [{format, proplist}]),
+    WithId = [{<<"_id">>, {Key}} | Proplist],
+
+    DocList = json_to_doclist(WithId, []).
+
+json_to_doclist([], Doclist) ->
+    bson:document(lists:reverse(Doclist));
+json_to_doclist([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
+    json_to_doclist(R, [{K, Doc} | Doclist]);
+json_to_doclist([{K, Doc} | R], Doclist) when is_list(Doc) ->
+    json_to_doclist(R, [{K, json_to_doclist(Doc, [])} | Doclist]);
+json_to_doclist([{K, Doc} | R], Doclist)->
+    json_to_doclist(R, [{K, Doc} | Doclist]).
 
 bsondoc_to_json(Doc) ->
     DocList = bson:fields(Doc),
@@ -77,4 +93,11 @@ bsondoc_test() ->
     Expected = {<<82,245,142,32,177,41,125,173,127,0,0,1>>, <<"{\"name\":\"MongoDB\",\"type\":\"database\",\"count\":1,\"info\":{\"x\":203,\"y\":\"102\"}}">>},
 
     ?assertEqual(Expected, bsondoc_to_json(Input)).
+
+json_test() ->
+    Input1 = <<82,245,142,32,177,41,125,173,127,0,0,1>>,
+    Input2 = <<"{\"name\":\"MongoDB\",\"type\":\"database\",\"count\":1,\"info\":{\"x\":203,\"y\":\"102\"}}">>,
+    Expected = {<<"_id">>,{<<82,245,142,32,177,41,125,173,127,0,0,1>>},<<"name">>,<<"MongoDB">>,<<"type">>,<<"database">>,<<"count">>,1,<<"info">>,{<<"x">>,203,<<"y">>,<<"102">>}},
+
+    ?assertEqual(Expected, json_to_bsondoc(Input1, Input2)).
 -endif.

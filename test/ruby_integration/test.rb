@@ -20,15 +20,15 @@ doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
 id = coll.insert(doc)
 p id
 
-db.collection("testCollection2").insert(doc)
-db.collection("testCollection3").insert(doc)
+# db.collection("testCollection2").insert(doc)
+# db.collection("testCollection3").insert(doc)
 
-mongo_client.db("testdb1").collection("testCollection1").insert(doc)
+# mongo_client.db("testdb1").collection("testCollection1").insert(doc)
 
 p db.collection_names # ["testCollection", "system.indexes"]
 p mongo_client.db("testdb1").collection_names
 
-# coll.find_one # { "_id" => BSON::ObjectId('4f7b1ea6e4d30b35c9000001'), "name"=>"MongoDB", "type"=>"database", "count"=>1, "info"=>{"x"=>203, "y"=>"102"}}
+p coll.find_one # { "_id" => BSON::ObjectId('4f7b1ea6e4d30b35c9000001'), "name"=>"MongoDB", "type"=>"database", "count"=>1, "info"=>{"x"=>203, "y"=>"102"}}
 
 # coll.find.each { |row| puts row.inspect }
 

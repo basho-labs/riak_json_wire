@@ -37,13 +37,15 @@ send(<<"admin">>=Db, Command, Session) ->
     rjw_command_admin:handle(Db, Command, Session);
 send(Db, #query{collection= <<"system.", _/binary>>}=Command, Session) -> 
     rjw_command_admin:handle(Db, Command, Session);
+send(Db, #query{collection= <<"$cmd">>}=Command, Session) -> 
+    rjw_command_admin:handle(Db, Command, Session);
 
 %% schema commands
 send(<<"schema:", Db/binary>>, Command, Session) -> rjw_command_schema:handle(Db, Command, Session);
 
 %% document commands
 send(Db, #insert{}=Command, Session) -> 
-    NewSession = rjw_server:set_last_insert(Db, Command#insert.collection, [], Session),
+    NewSession = rjw_server:set_last_insert(Db, Command#insert.collection, <<>>, Session),
     rjw_command_document:handle(Db, Command, NewSession);
 send(Db, #update{}=Command, Session) -> rjw_command_document:handle(Db, Command, Session);
 send(Db, #delete{}=Command, Session) -> rjw_command_document:handle(Db, Command, Session);

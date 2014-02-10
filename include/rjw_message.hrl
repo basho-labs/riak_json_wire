@@ -82,5 +82,3 @@
     cursorid = 0 :: cursorid(),
     startingfrom = 0 :: integer(),
     documents = [] :: [bson:document()] }).
-
--define(getlasterror(J,FS,WT), #query{collection= <<"$cmd">>, selector= {getlasterror,1, j,J, fsync,FS, wtimeout,WT}}).

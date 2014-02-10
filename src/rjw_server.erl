@@ -51,7 +51,7 @@
     socket, 
     transport, 
     socket_request_id = 0,
-    session = [] % list of database records with session info
+    session = #session{}
     }).
 
 %%% =================================================== external api
@@ -65,6 +65,9 @@ get_last_error(Db, Session) ->
 append_last_insert(Db, Coll, Insert, Session) ->
     NewInserts = Session#session.last_inserts ++ [{<<Db/binary, $.:8, Coll/binary>>, Insert}],
     Session#session{last_inserts = NewInserts}.
+set_last_insert(Db, Coll, <<>>, Session) ->
+    NewInserts = proplists:delete(<<Db/binary, $.:8, Coll/binary>>, Session#session.last_inserts),
+    Session#session{last_inserts = NewInserts};
 set_last_insert(Db, Coll, Insert, Session) ->
     NewInserts = proplist_update(<<Db/binary, $.:8, Coll/binary>>, Insert, Session#session.last_inserts),
     Session#session{last_inserts = NewInserts}.
@@ -132,10 +135,11 @@ respond_tcp(Reply, RequestId, State=#state{socket=Socket, transport=Transport}) 
 
 respond([], State) -> {ok, State};
 respond([M | R], State) ->
-    lager:debug("Message: ~p~n", [M]),
     {Db, Command, RequestId} = M,
 
     Session0 = State#state.session,
+
+    lager:debug("Message: ~p, Session: ~p~n", [M, Session0]),
 
     Session1 = case rjw_message_dispatch:send(Db,Command,Session0) of
         {error, undefinedreply, S} -> 

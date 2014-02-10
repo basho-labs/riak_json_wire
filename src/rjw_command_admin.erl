@@ -52,27 +52,17 @@
 
 % findAndModify   Returns and modifies a single document.
 % text    Performs a text search.
+
 % getLastError    Returns the success status of the last operation.
+handle(Db, #query{
+        collection= <<"$cmd">>, 
+        selector= {getlasterror,_, j,_J, fsync,_FS, wtimeout,_WT}}, Session) ->
+    Docs = case rjw_server:get_last_error(Db, Session) of
+        <<>> -> [{ok, true, err, null}];
+        Error -> [{ok, true, err, Error}]
+    end,
 
-
-
-
-% respond([{_, ?getlasterror(_J,_FS,_WT), RequestId} = M | R], State=#state{last_error = E}) ->
-%     lager:debug("Message: ~p~n", [M]),
-%     Docs = case E of
-%         <<>> -> [{ok, true, err, null}];
-%         Error -> [{ok, true, err, Error}]
-%     end,
-
-%     respond_tcp(#reply{documents=Docs}, RequestId, State#state{last_error = <<>>}),
-
-%     NewSocketRequestId = State#state.socket_request_id + 1,
-%     respond(R, State#state{socket_request_id = NewSocketRequestId});
-
-
-
-
-
+    {#reply{documents=Docs}, Session};
 % getPrevError    Returns status document containing all errors since the last resetError command.
 % resetError  Resets the last error status.
 % eval    Runs a JavaScript function on the database server.

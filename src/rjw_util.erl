@@ -48,9 +48,9 @@
 
 json_to_bsondoc(Key, Json) ->
     Proplist = jsonx:decode(Json, [{format, proplist}]),
-    WithId = [{<<"_id">>, {Key}} | Proplist],
+    WithId = [{'_id', {Key}} | Proplist],
 
-    DocList = json_to_doclist(WithId, []).
+    json_to_doclist(WithId, []).
 
 json_to_doclist([], Doclist) ->
     bson:document(lists:reverse(Doclist));
@@ -97,7 +97,7 @@ bsondoc_test() ->
 json_test() ->
     Input1 = <<82,245,142,32,177,41,125,173,127,0,0,1>>,
     Input2 = <<"{\"name\":\"MongoDB\",\"type\":\"database\",\"count\":1,\"info\":{\"x\":203,\"y\":\"102\"}}">>,
-    Expected = {<<"_id">>,{<<82,245,142,32,177,41,125,173,127,0,0,1>>},<<"name">>,<<"MongoDB">>,<<"type">>,<<"database">>,<<"count">>,1,<<"info">>,{<<"x">>,203,<<"y">>,<<"102">>}},
+    Expected = {'_id',{<<82,245,142,32,177,41,125,173,127,0,0,1>>},<<"name">>,<<"MongoDB">>,<<"type">>,<<"database">>,<<"count">>,1,<<"info">>,{<<"x">>,203,<<"y">>,<<"102">>}},
 
     ?assertEqual(Expected, json_to_bsondoc(Input1, Input2)).
 -endif.

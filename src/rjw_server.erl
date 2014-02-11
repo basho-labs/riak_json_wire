@@ -139,6 +139,7 @@ respond([M | R], State) ->
 
     Session0 = State#state.session,
 
+    lager:debug("______________________RiakJsonWire_Request______________________"),
     lager:debug("Message: ~p, Session: ~p~n", [M, Session0]),
 
     Session1 = case rjw_message_dispatch:send(Db,Command,Session0) of

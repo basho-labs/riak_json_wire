@@ -155,8 +155,8 @@ handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}, Session) 
 
 % collection names    Returns a document that lists all collections for a database
 % {<<"testdb">>,{query,false,false,false,false,<<"system.namespaces">>,0,0,{},[]},6}
-handle(Db, #query{collection= <<"system.namespaces">>}, Session) -> 
-    Collections = riak_json:get_collections(Db),
+handle(Db, #query{collection= <<"system.namespaces">>}, Session) ->
+    Collections = riak_json:get_collections(<< Db/binary, $.:8 >>),
     lager:debug("Types: ~p~n", [Collections]),
     {#reply{documents = Collections}, Session};
 
@@ -166,6 +166,23 @@ handle(Db, #query{collection= <<"system.namespaces">>}, Session) ->
 % listCommands    Lists all database commands provided by the current mongod instance.
 % availableQueryOptions   Internal command that reports on the capabilities of the current MongoDB instance.
 % buildInfo   Displays statistics about the MongoDB build.
+handle(_, #query{collection= <<"$cmd">>, selector= {buildinfo,1}}, Session) ->
+    Docs = [{
+        ok, true, 
+        version, <<"v0.0.1">>,
+        gitVersion, <<"string">>,
+        sysInfo, <<"string">>,
+        loaderFlags, <<"string">>,
+        compilerFlags, <<"string">>,
+        allocator, <<"string">>,
+        versionArray, [ 1 ],
+        javascriptEngine, <<"string">>,
+        bits, 1,
+        debug, false,
+        maxBsonObjectSize, 1
+    }],
+    {#reply{documents = Docs}, Session};
+
 % collStats   Reports storage utilization statics for a specified collection.
 % connPoolStats   Reports statistics on the outgoing connections from this MongoDB instance to other MongoDB instances in the deployment.
 % dbStats Reports storage utilization statistics for the specified database.
@@ -175,6 +192,10 @@ handle(Db, #query{collection= <<"system.namespaces">>}, Session) ->
 % getCmdLineOpts  Returns a document with the run-time arguments to the MongoDB instance and their parsed options.
 % netstat Internal command that reports on intra-deployment connectivity. Only available for mongos instances.
 % ping    Internal command that tests intra-deployment connectivity.
+handle(_, #query{collection= <<"$cmd">>, selector= {ping,1}}, Session) ->
+    Docs = [{ok, true}],
+    {#reply{documents = Docs}, Session};
+
 % profile Interface for the database profiler.
 % validate    Internal command that scans for a collection’s data and indexes for correctness.
 % top Returns raw usage statistics for each database in the mongod instance.
@@ -220,5 +241,5 @@ handle(Db, #query{collection= <<"system.namespaces">>}, Session) ->
 
 %% Unhandled Command
 handle(Db, Command, Session) -> 
-    lager:error("Unhandled Command: ~p on Db: ~n", [Command, Db]),
+    lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),
     {#reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.

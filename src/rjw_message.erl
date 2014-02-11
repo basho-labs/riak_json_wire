@@ -125,14 +125,21 @@ put_reply(RequestId, ResponseTo, #reply {
         awaitcapable = AwaitCapable,
         cursorid = CursorId,
         startingfrom = StartingFrom,
-        documents = Docs
+        documents = Docs0
     }) ->
+    Docs = case is_list(Docs0) of
+        true -> 
+            <<?put_int32 (length(Docs0)),
+            << <<(bson_binary:put_document(Doc))/binary>> || Doc <- Docs0>>/binary >>;
+        false ->
+            <<?put_int32 (1), (bson_binary:put_document(Docs0))/binary >>
+    end,
     << ?put_header(?ReplyOpcode, ResponseTo),
         ?put_bits32 (0,0,0,0, bit(AwaitCapable), 0, bit(QueryError), bit(CursorNotFound)),
         ?put_int64 (CursorId),
         ?put_int32 (StartingFrom),
-        ?put_int32 (length(Docs)),
-        << <<(bson_binary:put_document(Doc))/binary>> || Doc <- Docs>>/binary >>.
+        Docs/binary >>.
+        
 
 
 %%% =================================================== internal functions
@@ -300,4 +307,20 @@ ismaster_test() ->
     ?assertEqual([], Op#query.projector),
     ?assertEqual(1, RequestId).
 
+singledoc_test() ->
+    BinReply = put_reply(1, 1, #reply {
+        documents = {yeah, <<"somethingsomethingsomething">>}
+    }),
+    {1, RecReply, <<>>} = get_reply(BinReply),
+    ?debugFmt("~p~n", [RecReply]),
+    ?assertEqual([{yeah, <<"somethingsomethingsomething">>}], RecReply#reply.documents ).
+
+array_test() ->
+    BinReply = put_reply(1, 1, #reply {
+        documents = [{name,"testdb.testCollection2"},{name,"testdb.testCollection"}]
+    }),
+    {1, RecReply, <<>>} = get_reply(BinReply),
+    ?debugFmt("~p~n", [RecReply]),
+    ?assertEqual([{name,"testdb.testCollection2"},
+                             {name,"testdb.testCollection"}], RecReply#reply.documents ).
 -endif.

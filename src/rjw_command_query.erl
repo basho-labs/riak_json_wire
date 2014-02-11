@@ -31,12 +31,12 @@
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     Key = rjw_server:get_last_insert(Db, Coll, Session),
     JDocument = list_to_binary(riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key)),
-    {#reply{documents = [rjw_util:json_to_bsondoc(Key, JDocument)]}, Session};
+    {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session};
 
 % find one by id
 handle(Db, #query{collection=Coll, selector={'_id',{Key}}}, Session) ->
     JDocument = list_to_binary(riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key)),
-    {#reply{documents = [rjw_util:json_to_bsondoc(Key, JDocument)]}, Session};
+    {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session};
 
 % find one by i field
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{i,71},[]},4}

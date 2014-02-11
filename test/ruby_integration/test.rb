@@ -52,7 +52,12 @@ class DBTest < Test::Unit::TestCase
     end
 
     def test_remove_all()
+        # coll.count
         # coll.remove
+        # coll.count
+    end
+
+    def test_count()
         # coll.count
     end
 
@@ -87,10 +92,6 @@ class DBTest < Test::Unit::TestCase
         assert_equal doc["type"], one["type"]
     end
 
-    def test_count()
-        # coll.count
-    end
-
     def test_sorted_findall()
         # coll.find.sort(:i)
         # coll.find.sort(:i => :desc)
@@ -109,7 +110,6 @@ class DBTest < Test::Unit::TestCase
         # puts coll.find({"_id" => id}, :fields => ["name", "type"]).to_a
     end
 
-
     def test_findall_regex()
         # puts coll.find({"name" => /^M/}).to_a
 
@@ -124,6 +124,9 @@ class DBTest < Test::Unit::TestCase
     end
 
     def test_schemas()
+
+        #use db("schema:#{collection}") for schema operations as crud, implement for query (by id) as well
+
         # # create_index assumes ascending order; see method docs
         # for details
         # coll.create_index("i")

@@ -51,6 +51,32 @@ handle(Db, #query{collection=Coll, selector={'_id',{Key}}}, Session) ->
             {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
     end;
 
+handle(Db, #query{collection=Coll, selector=Sel}, Session) ->
+    try
+        {_, JDocument} = rjw_util:bsondoc_to_json(Sel),
+        Document = mochijson2:decode(JDocument),
+        SolrQuery = rj_query:from_json(Document, all),
+
+        try
+            {_, JsonResults} = riak_json:find(<<Db/binary, $.:8, Coll/binary>>, SolrQuery),
+            lager:debug("Query: ~p~nResult: ~p~n", [SolrQuery, JsonResults]),
+            
+            JsonResponse = rj_query_response:format_json_response(JsonResults, all, SolrQuery),
+
+            lager:debug("Formatted Result: ~p~n", [JsonResponse]),
+            {#reply{documents = rjw_util:json_to_bsondoc(undefined, list_to_binary(JsonResponse))}, Session}
+        catch
+            Exception1:Reason1 ->
+                lager:error("Query failed, ~p: ~p:~p, ~p", [SolrQuery, Exception1, Reason1, erlang:get_stacktrace()]), 
+                {#reply{documents = [{ok, false, err, <<"Query failed.">>}]}, Session}
+        end
+    catch
+        Exception:Reason ->
+            lager:debug("Malformed query, ~p: ~p:~p, ~p", [Sel, Exception, Reason, erlang:get_stacktrace()]), 
+            {#reply{documents = [{ok, false, err, <<"Malformed query.">>}]}, Session}
+    end;
+    
+
 % find one by i field
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{i,71},[]},4}
 

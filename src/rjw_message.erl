@@ -102,8 +102,8 @@ get_message(<<?get_header(?UpdateOpcode, _, RequestId), ?get_int32(0), R0/binary
 
 get_message(<<?get_header(?DeleteOpcode, _, RequestId), ?get_int32(0), R0/binary>>) ->
     {Db, Coll, R1} = get_dbcoll(R0),
-    <<?get_bits32(0,0,0,0,0,0,0, R), R1/binary>> = R0,
-    {Sel, _} = bson_binary:get_document(R1),
+    <<?get_bits32(0,0,0,0,0,0,0, R), R2/binary>> = R1,
+    {Sel, _} = bson_binary:get_document(R2),
 
     {Db, #delete{collection = Coll, singleremove = bool(R), selector = Sel}, RequestId};
 

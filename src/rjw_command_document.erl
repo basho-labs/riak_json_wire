@@ -27,7 +27,6 @@
 
 -include("rjw_message.hrl").
 
-
 % Field Updaters
 -define(inc_up(FieldValues), { '$inc', FieldValues }). %Increments the value of the field by the specified amount.
 -define(rename_up(Names), { '$rename', Names}). %Renames a field.
@@ -50,7 +49,6 @@
 -define(sort_upmod(SortDoc), { '$sort', SortDoc}). %Modifies the $push operator to reorder documents stored in an array.
 
 % Bitwise Updaters
-
 -define(bit_up(Field, Op, Num), { '$bit', { Field, { Op, Num }}}). %Performs bitwise AND and OR updates of integer values.
 
 % Updater Isolation (doesn't work on sharded clusters, so shouldn't work on Riak?)
@@ -73,14 +71,15 @@ handle(Db, #update{
         updater = Updater
         }, Session) ->
 
-    {#reply{documents = Docs}, Session} = 
+    {#reply{documents = Docs}, NewSession} = 
         rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
 
-    handle_update(Db, Coll, U, M, Sel, Updater, Docs, Session);
+    handle_update(Db, Coll, U, M, Sel, Updater, Docs, NewSession);
+handle(Db, #delete{collection=Coll,singleremove=Single,selector=Sel}, Session) -> 
+    {#reply{documents = Docs}, NewSession} = 
+        rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
 
-handle(Db, #delete{}=Command, Session) -> 
-    lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),
-    {noreply, rjw_server:set_last_error(Db, <<"Operation not supported.">>, Session)};
+    handle_delete(Db, Coll, Single, Docs, NewSession);
 
 handle(Db, Command, Session) -> 
     lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),
@@ -167,6 +166,19 @@ perform_update(Db, Coll, Doc, Sel, Session) when is_tuple(Doc) ->
 %% error
 perform_update(Db, _, _, _, Session) -> 
     error_reply(Db, <<"Operation not supported.">>, Session).
+
+handle_delete(_Db, _Coll, _Single, [], Session) -> {noreply, Session};
+handle_delete(Db, Coll, Single, [Doc|Docs], Session) ->
+    handle_delete(Db, Coll, Single, Doc, Session),
+    case Single of
+        true -> {noreply, Session};
+        false -> handle_delete(Db, Coll, Single, Docs, Session)
+    end;
+handle_delete(Db, Coll, _Single, Doc, Session) when is_tuple(Doc) ->
+    DocList = bson:fields(Doc),
+    {Key} = proplists:get_value('_id', DocList),
+    riak_json:delete_document(<<Db/binary, $.:8, Coll/binary>>, Key),
+    {noreply, Session}.
 
 error_reply(Db, Reason, Session) ->
     lager:error("Unhandled Document command with Reason: ~p on Db: ~p~n", [Reason, Db]),

@@ -38,6 +38,10 @@
 
 % aggregate   Performs aggregation tasks such as group using the aggregation framework.
 % count   Counts the number of documents in a collection.
+%TODO: improve this by executing only the solr query, don't retrieve results
+handle(Db, #query{collection= <<"$cmd">>, selector= {count, Coll, query, Sel, fields, Proj}}, Session) -> 
+    {#reply{documents = Docs}, NewSession} = rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session),
+    {#reply{documents = {ok, true, n, length(Docs)}}, NewSession};
 % distinct    Displays the distinct values found for a specified key in a collection.
 % group   Groups documents in a collection by the specified key and performs simple aggregation.
 % mapReduce   Performs map-reduce aggregation for large data sets.

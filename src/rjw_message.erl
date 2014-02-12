@@ -262,7 +262,7 @@ get_dbcoll(Bin) ->
 
 ismaster_test() ->
     Input = <<58,0,0,0,1,0,0,0,0,0,0,0,212,7,0,0,0,0,0,0,97,100,109,105,110,46,36,99,109,100,0,0,0,0,0,255,255,255,255,19,0,0,0,16,105,115,77,97,115,116,101,114,0,1,0,0,0,0>>,
-
+    
     {[Message], _} = get_messages(Input),
 
     {Db, Op, RequestId} = Message,
@@ -297,4 +297,6 @@ array_test() ->
     ?debugFmt("~p~n", [RecReply]),
     ?assertEqual([{name,"testdb.testCollection2"},
                              {name,"testdb.testCollection"}], RecReply#reply.documents ).
+
+
 -endif.

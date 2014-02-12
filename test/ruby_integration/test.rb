@@ -47,9 +47,6 @@ class DBTest < Test::Unit::TestCase
 
         @@coll.remove("_id" => id)
         assert_equal [], @@coll.find("_id" => id).to_a
-        # implement find first, then count on find
-        # @@coll.remove("i" => 71)
-        # puts coll.find("i" => 71).to_a
     end
 
     def test_remove_by_field()
@@ -60,29 +57,34 @@ class DBTest < Test::Unit::TestCase
         assert_equal [], @@coll.find("count" => 1).to_a
     end
 
-    def test_schema_inferral()
-        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
-        id = @@coll.insert(doc)
-
-        schema = @@client.db("schema:testdb").collection("testCollection1").find_one
-
-        expected_schema = {"fields"=>[
-            {"name"=>"name", "type"=>"string"},
-            {"name"=>"type", "type"=>"string"},
-            {"name"=>"count", "type"=>"number"}
-        ]}
-
-        assert_equal expected_schema, schema
-    end
-
     def test_remove_all()
-        # coll.count
-        # coll.remove
-        # coll.count
+        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+
+        assert @@coll.count >= 5
+
+        count1 = @@coll.count
+        
+        @@coll.remove
+        
+        assert_equal 0, @@coll.count
     end
 
     def test_count()
-        # coll.count
+        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+        
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+
+        assert @@coll.count >= 5
     end
 
     def test_collection_names()
@@ -114,6 +116,20 @@ class DBTest < Test::Unit::TestCase
         assert_equal id, one["_id"]
         assert_equal doc["name"], one["name"]
         assert_equal doc["type"], one["type"]
+    end
+
+    def test_findall()
+        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+        
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+        @@coll.insert(doc)
+
+        results = @@coll.find.to_a
+
+        assert results.length >= 5
     end
 
     def test_sorted_findall()
@@ -151,6 +167,21 @@ class DBTest < Test::Unit::TestCase
 
         # # Literal syntax
         # puts coll.find({"name" => /#{search_string}/}).to_a
+    end
+
+    def test_schema_inferral()
+        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+        id = @@coll.insert(doc)
+
+        schema = @@client.db("schema:testdb").collection("testCollection1").find_one
+
+        expected_schema = {"fields"=>[
+            {"name"=>"name", "type"=>"string"},
+            {"name"=>"type", "type"=>"string"},
+            {"name"=>"count", "type"=>"number"}
+        ]}
+
+        assert_equal expected_schema, schema
     end
 
     def test_schemas()

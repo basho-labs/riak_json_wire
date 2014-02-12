@@ -27,7 +27,9 @@
     proplist_to_doclist/2,
     json_to_bsondoc/2,
     doclist_to_proplist/2,
-    proplist_update/3
+    proplist_update/3,
+    bin_to_hexstr/1,
+    hexstr_to_bin/1
     ]).
 
 -include_lib("bson/include/bson_binary.hrl").

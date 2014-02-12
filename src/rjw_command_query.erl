@@ -42,12 +42,15 @@ handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     end;
 
 % find one by id
-handle(Db, #query{collection=Coll, selector={'_id',{Key}}}, Session) ->
+handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}}, Session) ->
+    Key = list_to_binary(rjw_util:bin_to_hexstr(BinKey)),
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 
             {#reply{documents = []}, Session};
         List ->
             JDocument = list_to_binary(List),
+            Bsondoc = rjw_util:json_to_bsondoc(Key, JDocument),
+            lager:debug("Bsondoc found: ~p~n", [Bsondoc]),
             {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
     end;
 

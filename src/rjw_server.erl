@@ -57,7 +57,7 @@
 %%% =================================================== external api
 
 set_last_error(Db, E, Session) ->
-    NewErrors = proplist_update(Db, E, Session#session.last_errors),
+    NewErrors = rjw_util:proplist_update(Db, E, Session#session.last_errors),
     Session#session{last_errors = NewErrors}.
 get_last_error(Db, Session) -> 
     proplists:get_value(Db, Session#session.last_errors, <<>>).
@@ -69,7 +69,7 @@ set_last_insert(Db, Coll, <<>>, Session) ->
     NewInserts = proplists:delete(<<Db/binary, $.:8, Coll/binary>>, Session#session.last_inserts),
     Session#session{last_inserts = NewInserts};
 set_last_insert(Db, Coll, Insert, Session) ->
-    NewInserts = proplist_update(<<Db/binary, $.:8, Coll/binary>>, Insert, Session#session.last_inserts),
+    NewInserts = rjw_util:proplist_update(<<Db/binary, $.:8, Coll/binary>>, Insert, Session#session.last_inserts),
     Session#session{last_inserts = NewInserts}.
 get_last_insert(Db, Coll, Session) ->
     proplists:get_value(<<Db/binary, $.:8, Coll/binary>>, Session#session.last_inserts, []).
@@ -156,10 +156,3 @@ respond([M | R], State) ->
         socket_request_id = NewSocketRequestId, 
         session = Session1
         }).
-
-proplist_update(Key, Val, Props) ->
-    Props1 = case proplists:is_defined(Key, Props) of
-        true -> proplists:delete(Key, Props);
-        false -> Props
-    end,
-    [{Key, Val} | Props1].

@@ -24,7 +24,10 @@
 -export([
     % bsonid_to_binary/1,
     bsondoc_to_json/1,
-    json_to_bsondoc/2
+    proplist_to_doclist/2,
+    json_to_bsondoc/2,
+    doclist_to_proplist/2,
+    proplist_update/3
     ]).
 
 -include_lib("bson/include/bson_binary.hrl").
@@ -50,32 +53,38 @@ json_to_bsondoc(Key, Json) ->
     Proplist = jsonx:decode(Json, [{format, proplist}]),
     WithId = [{'_id', {Key}} | Proplist],
 
-    json_to_doclist(WithId, []).
+    proplist_to_doclist(WithId, []).
 
-json_to_doclist([], Doclist) ->
+proplist_to_doclist([], Doclist) ->
     bson:document(lists:reverse(Doclist));
-json_to_doclist([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
-    json_to_doclist(R, [{K, Doc} | Doclist]);
-json_to_doclist([{K, Doc} | R], Doclist) when is_list(Doc) ->
-    json_to_doclist(R, [{K, json_to_doclist(Doc, [])} | Doclist]);
-json_to_doclist([{K, Doc} | R], Doclist)->
-    json_to_doclist(R, [{K, Doc} | Doclist]).
+proplist_to_doclist([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
+    proplist_to_doclist(R, [{K, Doc} | Doclist]);
+proplist_to_doclist([{K, Doc} | R], Doclist) when is_list(Doc) ->
+    proplist_to_doclist(R, [{K, proplist_to_doclist(Doc, [])} | Doclist]);
+proplist_to_doclist([{K, Doc} | R], Doclist)->
+    proplist_to_doclist(R, [{K, Doc} | Doclist]).
 
 bsondoc_to_json(Doc) ->
     DocList = bson:fields(Doc),
     {Key} = proplists:get_value('_id', DocList),
     WithoutId = proplists:delete('_id', DocList),
-    {Key, jsonx:encode(doclist_to_json(WithoutId, []))}.
+    {Key, jsonx:encode(doclist_to_proplist(WithoutId, []))}.
 
-doclist_to_json([], Doclist) ->
+doclist_to_proplist([], Doclist) ->
     lists:reverse(Doclist);
-doclist_to_json([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
-    doclist_to_json(R, [{K, doclist_to_json(bson:fields(Doc), [])} | Doclist]);
-doclist_to_json([{K, Doc} | R], Doclist) when is_list(Doc) ->
-    doclist_to_json(R, [{K, doclist_to_json(Doc, [])} | Doclist]);
-doclist_to_json([{K, Doc} | R], Doclist)->
-    doclist_to_json(R, [{K, Doc} | Doclist]).
+doclist_to_proplist([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
+    doclist_to_proplist(R, [{K, doclist_to_proplist(bson:fields(Doc), [])} | Doclist]);
+doclist_to_proplist([{K, Doc} | R], Doclist) when is_list(Doc) ->
+    doclist_to_proplist(R, [{K, doclist_to_proplist(Doc, [])} | Doclist]);
+doclist_to_proplist([{K, Doc} | R], Doclist)->
+    doclist_to_proplist(R, [{K, Doc} | Doclist]).
 
+proplist_update(Key, Val, Props) ->
+    Props1 = case proplists:is_defined(Key, Props) of
+        true -> proplists:delete(Key, Props);
+        false -> Props
+    end,
+    [{Key, Val} | Props1].
 % hexencode(<<>>) -> [];
 % hexencode(<<CH, Rest/binary>>) ->
 %     [ hex(CH) | hexencode(Rest) ].

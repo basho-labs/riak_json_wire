@@ -75,49 +75,53 @@ get_messages(MessagesBin, Messages) ->
     end.
 
 get_message(<<?get_header(?QueryOpcode, _, RequestId), R0/binary>>) ->
-    Op0 = #query{},
+    <<?get_bits32(0, 0, AD, NCT, 0, SOK, TC, 0), R1/binary>> = R0,
+    {Db, Coll, R2} = get_dbcoll(R1),
+    <<?get_int32(Skip), ?get_int32(Batch), R3/binary>> = R2,
+    {Sel, R4} = bson_binary:get_document(R3),
+    {Proj, _} = case R4 of <<>> -> {[], <<>>}; P1 -> bson_binary:get_document(P1) end,
 
-    {Op1, R1}     = query_meta(Op0, R0),
-    {Db, Op2, R2} = query_dbcoll(Op1, R1),
-    {Op3, R3}     = query_size(Op2, R2),
-    {Op4, R4}     = query_sel(Op3, R3),
-    {Op, _}       = query_proj(Op4, R4),
-
-    {Db, Op, RequestId};
+    {Db, #query{
+        tailablecursor = bool(TC), slaveok = bool(SOK), nocursortimeout = bool(NCT), awaitdata = bool(AD),
+        collection = Coll, skip = Skip, batchsize = Batch, selector = Sel, projector = Proj
+    }, RequestId};
 
 get_message(<<?get_header(?InsertOpcode, _, RequestId), ?get_int32(0), R0/binary>>) ->
-    Op0 = #insert{},
+    {Db, Coll, R1} = get_dbcoll(R0),
+    {Docs, _} = get_unknown_docs(R1),
 
-    {Db, Op1, R1} = insert_dbcoll(Op0, R0),
-    {Op, _}       = insert_docs(Op1, R1),
+    {Db, #insert{documents = Docs, collection = Coll}, RequestId};
 
-    {Db, Op, RequestId}.
+get_message(<<?get_header(?UpdateOpcode, _, RequestId), ?get_int32(0), R0/binary>>) ->
+        {Db, Coll, R1} = get_dbcoll(R0),
+        <<?get_bits32(0,0,0,0,0,0, M, U), R2/binary>> = R1,
+        {Sel, R3} = bson_binary:get_document(R2),
+        {Up, _} = bson_binary:get_document(R3),
+        
+        {Db, #update{collection = Coll, upsert = bool(U), multiupdate = bool(M), selector = Sel, updater = Up}, RequestId};
 
-% put_message(Db, #update{collection = Coll, upsert = U, multiupdate = M, selector = Sel, updater = Up}, RequestId) ->
-%     <<?put_header(?UpdateOpcode),
-%         ?put_int32(0),
-%         (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
-%         ?put_bits32(0,0,0,0,0,0, bit(M), bit(U)),
-%         (bson_binary:put_document(Sel))/binary,
-%         (bson_binary:put_document (Up))/binary>>;
-% put_message(Db, #delete{collection = Coll, singleremove = R, selector = Sel}, RequestId) ->
-%     <<?put_header(?DeleteOpcode),
-%         ?put_int32(0),
-%         (bson_binary:put_cstring(dbcoll(Db, Coll)))/binary,
-%         ?put_bits32(0,0,0,0,0,0,0, bit(R)),
-%         (bson_binary:put_document(Sel))/binary>>;
-% put_message(_Db, #killcursor{cursorids = Cids}, RequestId) ->
-%     <<?put_header(?KillcursorOpcode),
-%         ?put_int32(0),
-%         ?put_int32(length(Cids)),
-%         << <<?put_int64(Cid)>> || Cid <- Cids>>/binary >>;
+get_message(<<?get_header(?DeleteOpcode, _, RequestId), ?get_int32(0), R0/binary>>) ->
+    {Db, Coll, R1} = get_dbcoll(R0),
+    <<?get_bits32(0,0,0,0,0,0,0, R), R1/binary>> = R0,
+    {Sel, _} = bson_binary:get_document(R1),
 
-% put_message(Db, #getmore{collection = Coll, batchsize = Batch, cursorid = Cid}, RequestId) ->
-%     <<?put_header(?GetmoreOpcode),
-%         ?put_int32 (0),
-%         (bson_binary:put_cstring(dbcoll (Db, Coll))) /binary,
-%         ?put_int32(Batch),
-%         ?put_int64(Cid)>>.
+    {Db, #delete{collection = Coll, singleremove = bool(R), selector = Sel}, RequestId};
+
+get_message(<<?get_header(?KillcursorOpcode, _, RequestId), ?get_int32(0), R0/binary>>) ->
+    <<?get_int32(CidsLen), R1/binary>> = R0,
+    {Cids, _} = get_docs (CidsLen, R1),
+
+    {<<>>, #killcursor{cursorids = Cids}, RequestId};
+
+get_message(<<?get_header(?GetmoreOpcode, _, RequestId), ?get_int32 (0), R0/binary>>) ->
+    {Db, Coll, R1} = get_dbcoll(R0),
+    <<?get_int32(Batch), ?get_int64(Cid)>> = R1,
+
+    {Db, #getmore{collection = Coll, batchsize = Batch, cursorid = Cid}, RequestId};
+
+get_message(<<?get_header(OpCode, _, RequestId), _/binary>>=Bin) ->
+    lager:error("No message type for OpCode: ~p, RequestId: ~p, Full Message: ~p~n", [OpCode, RequestId, Bin]),
+    {<<>>, {}, RequestId}.
 
 put_reply(RequestId, ResponseTo, #reply {
         cursornotfound = CursorNotFound,
@@ -142,7 +146,7 @@ put_reply(RequestId, ResponseTo, #reply {
         
 
 
-%%% =================================================== internal functions
+%%% =================================================== client functions
 
 
 -spec dbcoll (db(), collection()) -> bson:utf8().
@@ -210,36 +214,6 @@ get_reply(Message) ->
     {ResponseTo, Reply, BinRest}.
 
 %%% =================================================== internal functions
-
-%% query helpers
-
-query_meta(Op, <<?get_bits32(0, 0, AD, NCT, 0, SOK, TC, 0), R/binary>>) ->
-    {Op#'query'{tailablecursor = bool(TC), slaveok = bool(SOK), nocursortimeout = bool(NCT), awaitdata = bool(AD)}, R}.
-
-query_dbcoll(Op, Bin) ->
-    {Db, Coll, R} = get_dbcoll(Bin),
-    {Db, Op#query{collection = Coll}, R}.
-
-query_size(Op, <<?get_int32(Skip), ?get_int32(Batch), R/binary>>) ->
-    {Op#query{skip = Skip, batchsize = Batch}, R}.
-
-query_sel(Op, Bin) ->
-    {Sel, R} = bson_binary:get_document(Bin),
-    {Op#query{selector = Sel}, R}.
-
-query_proj(Op, Bin) ->
-    {Proj, R} = case Bin of <<>> -> {[], <<>>}; P1 -> bson_binary:get_document(P1) end,
-    {Op#query{projector = Proj}, R}.
-
-%% insert helpers
-
-insert_dbcoll(Op, Bin) ->
-    {Db, Coll, R} = get_dbcoll(Bin),
-    {Db, Op#insert{collection = Coll}, R}.
-
-insert_docs(Op, Bin) ->
-    {Docs, R} = get_unknown_docs(Bin),
-    {Op#insert{documents = Docs}, R}.
 
 %% utilities
 

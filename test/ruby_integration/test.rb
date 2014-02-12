@@ -29,16 +29,16 @@ class DBTest < Test::Unit::TestCase
     end
 
     def test_update()
-        # doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
-        # id = @@coll.insert(doc)
+        doc = {"name" => "MongoDB", "type" => "database", "count" => 1}
+        id = @@coll.insert(doc)
 
-        # doc["name"] = "MongoDB Ruby"
-        # assert @@coll.update({"_id" => id}, doc)
-        # assert_equal doc, @@coll.find("_id" => id)
+        doc["name"] = "MongoDB Ruby"
+        assert @@coll.update({"_id" => id}, doc)
+        assert_equal "MongoDB Ruby", @@coll.find("_id" => id).to_a.first["name"]
         
-        # assert @@coll.update({"_id" => id}, {"$set" => {"name" => "MongoDB Riak Ruby"}})
-        # doc["name"] = "MongoDB Riak Ruby"
-        # assert_equal doc, @@coll.find("_id" => id)
+        assert @@coll.update({"_id" => id}, {"$set" => {"name" => "MongoDB Riak Ruby"}})
+        doc["name"] = "MongoDB Riak Ruby"
+        assert_equal "MongoDB Riak Ruby", @@coll.find("_id" => id).to_a.first["name"]
     end
 
     def test_remove_by()

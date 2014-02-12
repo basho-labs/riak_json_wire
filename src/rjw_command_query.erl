@@ -61,10 +61,16 @@ handle(Db, #query{collection=Coll, selector=Sel}, Session) ->
             {_, JsonResults} = riak_json:find(<<Db/binary, $.:8, Coll/binary>>, SolrQuery),
             lager:debug("Query: ~p~nResult: ~p~n", [SolrQuery, JsonResults]),
             
-            JsonResponse = rj_query_response:format_json_response(JsonResults, all, SolrQuery),
+            JsonResponse = list_to_binary(rj_query_response:format_json_response(JsonResults, all, SolrQuery)),
 
-            lager:debug("Formatted Result: ~p~n", [JsonResponse]),
-            {#reply{documents = rjw_util:json_to_bsondoc(undefined, list_to_binary(JsonResponse))}, Session}
+            lager:debug("Formatted Result Bin: ~p~n", [JsonResponse]),
+
+            
+            Proplist = jsonx:decode(JsonResponse, [{format, proplist}]),
+            %%TODO get pagination stuff from this: % <<"{\"total\":2,\"page\":0,\"per_page\":100,\"num_pages\":1,\"data\":[{\"_id\":\"52fb05d2b1297d1b18000003\",\"i\":30},{\"_id\":\"52fb0686b1297d24cd000003\",\"i\":30}]}">>
+            Data = proplists:get_value(<<"data">>, Proplist),
+            Docs = [rjw_util:proplist_to_doclist(X, []) || X <- Data],
+            {#reply{documents = Docs}, Session}
         catch
             Exception1:Reason1 ->
                 lager:error("Query failed, ~p: ~p:~p, ~p", [SolrQuery, Exception1, Reason1, erlang:get_stacktrace()]), 

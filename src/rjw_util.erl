@@ -76,8 +76,6 @@ bsondoc_to_json(Doc) ->
     end,
     {Key, jsonx:encode(doclist_to_proplist(WithoutId, []))}.
 
-%results portion is choking
-% [{<<"_id">>,<<"52fb05d2b1297d1b18000003">>},{<<"i">>,30}],[{<<"_id">>,<<"52fb0686b1297d24cd000003">>},{<<"i">>,30}],[{<<"_id">>,<<"52fb0801b1297d36d2000003">>},{<<"i">>,30}]
 doclist_to_proplist([], Doclist) ->
     lists:reverse(Doclist);
 doclist_to_proplist([{K, Doc} | R], Doclist) when is_tuple(Doc) ->
@@ -140,4 +138,13 @@ json_test() ->
     Expected = {'_id',{<<82,245,142,32,177,41,125,173,127,0,0,1>>},<<"name">>,<<"MongoDB">>,<<"type">>,<<"database">>,<<"count">>,1,<<"info">>,{<<"x">>,203,<<"y">>,<<"102">>}},
 
     ?assertEqual(Expected, json_to_bsondoc(Input1, Input2)).
+
+json_list_test() ->
+    Input = <<"[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"type\",\"type\":\"string\"},{\"name\":\"count\",\"type\":\"number\"}]">>,
+    Proplist = jsonx:decode(Input, [{format, proplist}]),
+    Docs = [rjw_util:proplist_to_doclist(X, []) || X <- Proplist],
+    
+    ?assertEqual([{<<"name">>,<<"name">>,<<"type">>,<<"string">>},
+                  {<<"name">>,<<"type">>,<<"type">>,<<"string">>},
+                  {<<"name">>,<<"count">>,<<"type">>,<<"number">>}], Docs).
 -endif.

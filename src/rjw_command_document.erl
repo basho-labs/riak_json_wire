@@ -176,7 +176,7 @@ handle_delete(Db, Coll, Single, [Doc|Docs], Session) ->
     end;
 handle_delete(Db, Coll, _Single, Doc, Session) when is_tuple(Doc) ->
     DocList = bson:fields(Doc),
-    {Key} = proplists:get_value('_id', DocList),
+    Key = proplists:get_value(<<"_id">>, DocList),
     riak_json:delete_document(<<Db/binary, $.:8, Coll/binary>>, Key),
     {noreply, Session}.
 

@@ -19,13 +19,13 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rjw_command_admin).
+-module(rjw_admin).
 
 -export([
     handle/3
     ]).
 
--include("rjw_message.hrl").
+-include("riak_json_wire.hrl").
 -include_lib("riak_json/include/riak_json.hrl").
 
 -ifdef(TEST).
@@ -40,8 +40,8 @@
 % count   Counts the number of documents in a collection.
 %TODO: improve this by executing only the solr query, don't retrieve results
 handle(Db, #query{collection= <<"$cmd">>, selector= {count, Coll, query, Sel, fields, Proj}}, Session) -> 
-    {#reply{documents = Docs}, NewSession} = rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session),
-    {#reply{documents = {ok, true, n, length(Docs)}}, NewSession};
+    {reply, #reply{documents = Docs}, NewSession} = rjw_query:handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session),
+    {reply, #reply{documents = {ok, true, n, length(Docs)}}, NewSession};
 % distinct    Displays the distinct values found for a specified key in a collection.
 % group   Groups documents in a collection by the specified key and performs simple aggregation.
 % mapReduce   Performs map-reduce aggregation for large data sets.
@@ -61,12 +61,12 @@ handle(Db, #query{collection= <<"$cmd">>, selector= {count, Coll, query, Sel, fi
 handle(Db, #query{
         collection= <<"$cmd">>, 
         selector= {getlasterror,_, j,_J, fsync,_FS, wtimeout,_WT}}, Session) ->
-    Docs = case rjw_server:get_last_error(Db, Session) of
+    Docs = case riak_json_wire:get_last_error(Db, Session) of
         <<>> -> [{ok, true, err, null}];
         Error -> [{ok, true, err, Error}]
     end,
 
-    {#reply{documents=Docs}, Session};
+    {reply, #reply{documents=Docs}, Session};
 % getPrevError    Returns status document containing all errors since the last resetError command.
 % resetError  Resets the last error status.
 % eval    Runs a JavaScript function on the database server.
@@ -97,7 +97,7 @@ handle(_Db, #query{collection= <<"$cmd">>, selector= {ismaster, 1}}=Collection, 
     handle(_Db, Collection#query{selector={isMaster, 1}}, Session);
 handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}, Session) -> 
     Docs = [{ok, true, ismaster, 1}],
-    {#reply{documents = Docs}, Session};
+    {reply, #reply{documents = Docs}, Session};
 
 % getoptime   Internal command to support replication, returns the optime.
 
@@ -155,14 +155,14 @@ handle(_, #query{collection= <<"$cmd">>, selector= {isMaster, 1}}, Session) ->
 % listDatabases   Returns a document that lists all databases and returns basic database statistics.
 handle(_, #query{collection= <<"$cmd">>, selector= {listDatabases,1}}, Session) ->
     Docs = [{ok, true, databases, [{name, <<"admin">>, sizeOnDisk, 0, empty, true},{name, <<"riak">>, sizeOnDisk, 0, empty, false}]}],
-    {#reply{documents = Docs}, Session};
+    {reply, #reply{documents = Docs}, Session};
 
 % collection names    Returns a document that lists all collections for a database
 % {<<"testdb">>,{query,false,false,false,false,<<"system.namespaces">>,0,0,{},[]},6}
 handle(Db, #query{collection= <<"system.namespaces">>}, Session) ->
     Collections = riak_json:get_collections(<< Db/binary, $.:8 >>),
     lager:debug("Types: ~p~n", [Collections]),
-    {#reply{documents = Collections}, Session};
+    {reply, #reply{documents = Collections}, Session};
 
 
 % dbHash  Internal command to support sharding.
@@ -185,7 +185,7 @@ handle(_, #query{collection= <<"$cmd">>, selector= {buildinfo,1}}, Session) ->
         debug, false,
         maxBsonObjectSize, 1
     }],
-    {#reply{documents = Docs}, Session};
+    {reply, #reply{documents = Docs}, Session};
 
 % collStats   Reports storage utilization statics for a specified collection.
 % connPoolStats   Reports statistics on the outgoing connections from this MongoDB instance to other MongoDB instances in the deployment.
@@ -198,7 +198,7 @@ handle(_, #query{collection= <<"$cmd">>, selector= {buildinfo,1}}, Session) ->
 % ping    Internal command that tests intra-deployment connectivity.
 handle(_, #query{collection= <<"$cmd">>, selector= {ping,1}}, Session) ->
     Docs = [{ok, true}],
-    {#reply{documents = Docs}, Session};
+    {reply, #reply{documents = Docs}, Session};
 
 % profile Interface for the database profiler.
 % validate    Internal command that scans for a collection’s data and indexes for correctness.
@@ -246,4 +246,4 @@ handle(_, #query{collection= <<"$cmd">>, selector= {ping,1}}, Session) ->
 %% Unhandled Command
 handle(Db, Command, Session) -> 
     lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),
-    {#reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.
+    {reply, #reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.

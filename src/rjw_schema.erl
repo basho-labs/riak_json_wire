@@ -19,26 +19,26 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rjw_command_schema).
+-module(rjw_schema).
 
 -export([
     handle/3
     ]).
 
--include("rjw_message.hrl").
+-include("riak_json_wire.hrl").
 
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     case riak_json:get_default_schema(<<Db/binary, $.:8, Coll/binary>>) of
         {error, _} -> 
-            {#reply{documents = []}, Session};
+            {reply, #reply{documents = []}, Session};
         List ->
             JDocument = list_to_binary(List),
             lager:debug("Schemabin: ~p", [JDocument]),
             Proplist = jsonx:decode(JDocument, [{format, proplist}]),
             Fields = [rjw_util:proplist_to_doclist(X, []) || X <- Proplist],
-            {#reply{documents = {fields, Fields}}, Session}
+            {reply, #reply{documents = {fields, Fields}}, Session}
     end;
 
-handle(_Db, #insert{}=_Command, Session) -> {noreply, Session};
-handle(_Db, #update{}=_Command, Session) -> {noreply, Session};
-handle(_Db, #delete{}=_Command, Session) -> {noreply, Session}.
+handle(_Db, #insert{}=_Command, Session) -> {noreply, undefined, Session};
+handle(_Db, #update{}=_Command, Session) -> {noreply, undefined, Session};
+handle(_Db, #delete{}=_Command, Session) -> {noreply, undefined, Session}.

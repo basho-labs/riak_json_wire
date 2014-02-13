@@ -19,26 +19,26 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rjw_command_query).
+-module(rjw_query).
 
 -export([
     handle/3
     ]).
 
--include("rjw_message.hrl").
+-include("riak_json_wire.hrl").
 
 %%% =================================================== external api
 
 % find (the last) one
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
-    Key = rjw_server:get_last_insert(Db, Coll, Session),
+    Key = riak_json_wire:get_last_insert(Db, Coll, Session),
 
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 
-            {#reply{documents = []}, Session};
+            {reply, #reply{documents = []}, Session};
         List ->
             JDocument = list_to_binary(List),
-            {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
+            {reply, #reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
     end;
 
 % find one by id
@@ -46,13 +46,13 @@ handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}, projector=Proj}, S
     Key = list_to_binary(rjw_util:bin_to_hexstr(BinKey)),
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 
-            {#reply{documents = []}, Session};
+            {reply, #reply{documents = []}, Session};
         List ->
             JDocument = list_to_binary(List),
             KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
             Bsondoc = rjw_util:json_to_bsondoc(Key, JDocument, KeysToInclude),
             lager:debug("Bsondoc found: ~p~n", [Bsondoc]),
-            {#reply{documents = Bsondoc}, Session}
+            {reply, #reply{documents = Bsondoc}, Session}
     end;
 
 handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session) ->
@@ -74,16 +74,16 @@ handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session) ->
             Data = proplists:get_value(<<"data">>, Proplist),
             KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
             Docs = [rjw_util:proplist_to_doclist(X, KeysToInclude, [])|| X <- Data],
-            {#reply{documents = Docs}, Session}
+            {reply, #reply{documents = Docs}, Session}
         catch
             Exception1:Reason1 ->
                 lager:error("Query failed, ~p: ~p:~p, ~p", [SolrQuery, Exception1, Reason1, erlang:get_stacktrace()]), 
-                {#reply{documents = [{ok, false, err, <<"Query failed.">>}]}, Session}
+                {reply, #reply{documents = [{ok, false, err, <<"Query failed.">>}]}, Session}
         end
     catch
         Exception:Reason ->
             lager:debug("Malformed query, ~p: ~p:~p, ~p", [Sel, Exception, Reason, erlang:get_stacktrace()]), 
-            {#reply{documents = [{ok, false, err, <<"Malformed query.">>}]}, Session}
+            {reply, #reply{documents = [{ok, false, err, <<"Malformed query.">>}]}, Session}
     end;
 
 % regex
@@ -91,4 +91,4 @@ handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session) ->
 
 handle(Db, Command, Session) -> 
     lager:error("Unhandled Command: ~p on Db: ~n", [Command, Db]),
-    {#reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.
+    {reply, #reply{documents = [{ok, false, err, <<"Operation not supported.">>}]}, Session}.

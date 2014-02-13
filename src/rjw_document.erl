@@ -19,13 +19,13 @@
 %%
 %% -------------------------------------------------------------------
 
--module(rjw_command_document).
+-module(rjw_document).
 
 -export([
     handle/3
     ]).
 
--include("rjw_message.hrl").
+-include("riak_json_wire.hrl").
 
 % Field Updaters
 -define(inc_up(FieldValues), { '$inc', FieldValues }). %Increments the value of the field by the specified amount.
@@ -57,11 +57,11 @@
 %%% =================================================== external api
 
 handle(_, #insert{collection=_, documents=[]}, Session) -> 
-    {noreply, Session};
+    {noreply, undefined, Session};
 handle(Db, #insert{collection=Coll, documents=[Doc|R]}=Command, Session) ->
     %%TODO: Handle Errors
     {Key} = insert_or_update(Db, Coll, Doc),
-    NewSession = rjw_server:append_last_insert(Db, Coll, Key, Session),
+    NewSession = riak_json_wire:append_last_insert(Db, Coll, Key, Session),
     handle(Db, Command#insert{documents=R}, NewSession);
 handle(Db, #update{
         collection = Coll, 
@@ -71,22 +71,22 @@ handle(Db, #update{
         updater = Updater
         }, Session) ->
 
-    {#reply{documents = Docs}, NewSession} = 
-        rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
+    {reply, #reply{documents = Docs}, NewSession} = 
+        rjw_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
 
     handle_update(Db, Coll, U, M, Sel, Updater, Docs, NewSession);
 handle(Db, #delete{collection=Coll,singleremove=Single,selector=Sel}, Session) -> 
-    {#reply{documents = Docs}, NewSession} = 
-        rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
+    {reply, #reply{documents = Docs}, NewSession} = 
+        rjw_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
 
     case Docs of
-        [{ok, false, err, Reason}] -> {noreply, Session};
+        [{ok, false, err, Reason}] -> {noreply, undefined, Session};
         _ -> handle_delete(Db, Coll, Single, Docs, NewSession)
     end;
 
 handle(Db, Command, Session) -> 
     lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),
-    {noreply, rjw_server:set_last_error(Db, <<"Operation not supported.">>, Session)}.
+    {noreply, undefined, riak_json_wire:set_last_error(Db, <<"Operation not supported.">>, Session)}.
 
 %%% =================================================== internal functions
 
@@ -119,7 +119,7 @@ handle_update(Db, _, _, _, _, _, _, Session) ->
     error_reply(Db, <<"Operation not supported.">>, Session).
 
 %% Perform update given an Updater and result set
-perform_update(_Db, _Coll, [], _Sel, Session) -> {noreply, Session};
+perform_update(_Db, _Coll, [], _Sel, Session) -> {noreply, undefined, Session};
 perform_update(Db, Coll, [Doc|Docs], Sel, Session) -> 
     % Update single doc
     perform_update(Db, Coll, Doc, Sel, Session),
@@ -134,10 +134,10 @@ perform_update(Db, Coll, Doc, ?rename_up(Names), Session) when is_tuple(Doc) ->
 perform_update(Db, Coll, Doc, ?setoninsert_up(FieldValues), Session) when is_tuple(Doc) ->
     error_reply(Db, <<"Setoninsert operation not supported.">>, Session);
 perform_update(Db, Coll, Doc, ?set_up(FieldValues), Session) when is_tuple(Doc) ->
-    NewFields = proplist_replace(bson:fields(FieldValues), bson:fields(Doc)),
+    NewFields = rjw_util:proplist_replaceall(bson:fields(FieldValues), bson:fields(Doc)),
     NewBsondoc = rjw_util:proplist_to_doclist(NewFields, []),
     {Key} = insert_or_update(Db, Coll, NewBsondoc),
-    {noreply, Session};
+    {noreply, undefined, Session};
 perform_update(Db, Coll, Doc, ?unset_up(FieldValues), Session) when is_tuple(Doc) ->
     error_reply(Db, <<"Unset operation not supported.">>, Session);
 
@@ -161,20 +161,20 @@ perform_update(Db, Coll, Doc, ?bit_up(Field, Op, Num), Session) when is_tuple(Do
 
 % Replace document with Selector contents
 perform_update(Db, Coll, Doc, Sel, Session) when is_tuple(Doc) ->
-    NewFields = proplist_replace(bson:fields(Sel), bson:fields(Doc)),
+    NewFields = rjw_util:proplist_replaceall(bson:fields(Sel), bson:fields(Doc)),
     NewBsondoc = rjw_util:proplist_to_doclist(NewFields, []),
     insert_or_update(Db, Coll, NewBsondoc),
-    {noreply, Session};
+    {noreply, undefined, Session};
 
 %% error
 perform_update(Db, _, _, _, Session) -> 
     error_reply(Db, <<"Operation not supported.">>, Session).
 
-handle_delete(_Db, _Coll, _Single, [], Session) -> {noreply, Session};
+handle_delete(_Db, _Coll, _Single, [], Session) -> {noreply, undefined, Session};
 handle_delete(Db, Coll, Single, [Doc|Docs], Session) ->
     handle_delete(Db, Coll, Single, Doc, Session),
     case Single of
-        true -> {noreply, Session};
+        true -> {noreply, undefined, Session};
         false -> handle_delete(Db, Coll, Single, Docs, Session)
     end;
 handle_delete(Db, Coll, _Single, Doc, Session) when is_tuple(Doc) ->
@@ -184,12 +184,8 @@ handle_delete(Db, Coll, _Single, Doc, Session) when is_tuple(Doc) ->
         {K} -> list_to_binary(rjw_util:bin_to_hexstr(K))
     end,
     riak_json:delete_document(<<Db/binary, $.:8, Coll/binary>>, Key),
-    {noreply, Session}.
+    {noreply, undefined, Session}.
 
 error_reply(Db, Reason, Session) ->
     lager:error("Unhandled Document command with Reason: ~p on Db: ~p~n", [Reason, Db]),
-    {noreply, rjw_server:set_last_error(Db, Reason, Session)}.
-
-proplist_replace([], NewList) -> NewList;
-proplist_replace([{Key,_}=NewTuple|R], NewList) ->
-    proplist_replace(R, lists:keystore(Key, 1, NewList, NewTuple)).
+    {noreply, undefined, riak_json_wire:set_last_error(Db, Reason, Session)}.

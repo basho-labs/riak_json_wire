@@ -32,7 +32,7 @@
 -export_type([message/0]).
 -export_type([requestid/0]).
 
--include("rjw_message.hrl").
+-include("riak_json_wire.hrl").
 -include_lib("bson/include/bson_binary.hrl").
 
 -ifdef(TEST).
@@ -123,6 +123,8 @@ get_message(<<?get_header(OpCode, _, RequestId), _/binary>>=Bin) ->
     lager:error("No message type for OpCode: ~p, RequestId: ~p, Full Message: ~p~n", [OpCode, RequestId, Bin]),
     {<<>>, {}, RequestId}.
 
+put_reply(_, _, undefined) ->
+    undefined;
 put_reply(RequestId, ResponseTo, #reply {
         cursornotfound = CursorNotFound,
         queryerror = QueryError,

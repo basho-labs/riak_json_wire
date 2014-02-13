@@ -21,18 +21,13 @@
 
 % Wire protocol message types (records)
 
--type db() :: atom().
+-type db() :: binary().
 
--type collection() :: atom(). % without db prefix
+-type collection() :: binary(). % without db prefix
 
 -type cursorid() :: integer().
 
 -type selector() :: bson:document().
-
--record (session, {
-    last_errors = [],
-    last_inserts = []
-    }).
 
 -record (insert, {
     collection :: collection(),
@@ -82,3 +77,10 @@
     cursorid = 0 :: cursorid(),
     startingfrom = 0 :: integer(),
     documents = [] :: [bson:document()] }).
+
+% Wire protocol server types (records)
+
+-record (session, {
+    last_errors = [],
+    last_inserts = []
+    }).

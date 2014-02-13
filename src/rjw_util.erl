@@ -22,14 +22,13 @@
 -module(rjw_util).
 
 -export([
-    % bsonid_to_binary/1,
+    proplist_replaceall/2,
     bsondoc_to_json/1,
     proplist_to_doclist/2,
     proplist_to_doclist/3,
     json_to_bsondoc/2,
     json_to_bsondoc/3,
     doclist_to_proplist/2,
-    proplist_update/3,
     bin_to_hexstr/1,
     hexstr_to_bin/1
     ]).
@@ -105,12 +104,9 @@ doclist_to_proplist([{K, Doc} | R], Doclist) when is_list(Doc) ->
 doclist_to_proplist([{K, Doc} | R], Doclist)->
     doclist_to_proplist(R, [{K, Doc} | Doclist]).
 
-proplist_update(Key, Val, Props) ->
-    Props1 = case proplists:is_defined(Key, Props) of
-        true -> proplists:delete(Key, Props);
-        false -> Props
-    end,
-    [{Key, Val} | Props1].
+proplist_replaceall([], NewList) -> NewList;
+proplist_replaceall([{Key,_}=NewTuple|R], NewList) ->
+    proplist_replaceall(R, lists:keystore(Key, 1, NewList, NewTuple)).
 
 hex(N) when N < 10 ->
     $0+N;

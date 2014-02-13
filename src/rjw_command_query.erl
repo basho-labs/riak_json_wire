@@ -42,19 +42,20 @@ handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     end;
 
 % find one by id
-handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}}, Session) ->
+handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}, projector=Proj}, Session) ->
     Key = list_to_binary(rjw_util:bin_to_hexstr(BinKey)),
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 
             {#reply{documents = []}, Session};
         List ->
             JDocument = list_to_binary(List),
-            Bsondoc = rjw_util:json_to_bsondoc(Key, JDocument),
+            KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
+            Bsondoc = rjw_util:json_to_bsondoc(Key, JDocument, KeysToInclude),
             lager:debug("Bsondoc found: ~p~n", [Bsondoc]),
-            {#reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
+            {#reply{documents = Bsondoc}, Session}
     end;
 
-handle(Db, #query{collection=Coll, selector=Sel}, Session) ->
+handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session) ->
     try
         {_, JDocument} = rjw_util:bsondoc_to_json(Sel),
         Document = mochijson2:decode(JDocument),
@@ -68,11 +69,11 @@ handle(Db, #query{collection=Coll, selector=Sel}, Session) ->
 
             lager:debug("Formatted Result Bin: ~p~n", [JsonResponse]),
 
-            
             Proplist = jsonx:decode(JsonResponse, [{format, proplist}]),
             %%TODO get pagination stuff from this: % <<"{\"total\":2,\"page\":0,\"per_page\":100,\"num_pages\":1,\"data\":[{\"_id\":\"52fb05d2b1297d1b18000003\",\"i\":30},{\"_id\":\"52fb0686b1297d24cd000003\",\"i\":30}]}">>
             Data = proplists:get_value(<<"data">>, Proplist),
-            Docs = [rjw_util:proplist_to_doclist(X, []) || X <- Data],
+            KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
+            Docs = [rjw_util:proplist_to_doclist(X, KeysToInclude, [])|| X <- Data],
             {#reply{documents = Docs}, Session}
         catch
             Exception1:Reason1 ->

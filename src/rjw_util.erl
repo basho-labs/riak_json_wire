@@ -25,7 +25,9 @@
     % bsonid_to_binary/1,
     bsondoc_to_json/1,
     proplist_to_doclist/2,
+    proplist_to_doclist/3,
     json_to_bsondoc/2,
+    json_to_bsondoc/3,
     doclist_to_proplist/2,
     proplist_update/3,
     bin_to_hexstr/1,
@@ -52,14 +54,30 @@
 %         hexencode(list_to_binary(riak_core_util:unique_id_62()))).
 
 json_to_bsondoc(Key, Json) ->
+    json_to_bsondoc(Key, Json, []).
+
+json_to_bsondoc(Key, Json, KeysToInclude) ->
     Proplist = jsonx:decode(Json, [{format, proplist}]),
-    
+
     WithId = case Key of
         undefined -> Proplist;
         K -> [{'_id', {hexstr_to_bin(binary_to_list(K))}} | Proplist]
     end,
 
-    proplist_to_doclist(WithId, []).
+    proplist_to_doclist(WithId, KeysToInclude, []).
+
+proplist_to_doclist(Proplist, KeysToInclude, []) ->
+    CorrectKeys = case KeysToInclude of
+        [] -> Proplist;
+        _ -> 
+            C = [ {list_to_binary(atom_to_list(K)), proplists:get_value(list_to_binary(atom_to_list(K)), Proplist)} || K <- KeysToInclude ],
+            case proplists:get_value('_id', Proplist) of
+                undefined -> C;
+                K -> [{'_id', K} | C]
+            end
+    end,
+
+    proplist_to_doclist(CorrectKeys, []).
 
 proplist_to_doclist([], Doclist) ->
     bson:document(lists:reverse(Doclist));
@@ -149,4 +167,13 @@ json_list_test() ->
     ?assertEqual([{<<"name">>,<<"name">>,<<"type">>,<<"string">>},
                   {<<"name">>,<<"type">>,<<"type">>,<<"string">>},
                   {<<"name">>,<<"count">>,<<"type">>,<<"number">>}], Docs).
+
+keys_test() ->
+    Input1 = <<"52f58e20b1297dad7f000001">>,
+    Input2 = <<"{\"name\":\"MongoDB\",\"type\":\"database\",\"count\":1,\"info\":{\"x\":203,\"y\":\"102\"}}">>,
+    Keys = [name, type],
+    Expected = {'_id',{<<82,245,142,32,177,41,125,173,127,0,0,1>>},<<"name">>,<<"MongoDB">>,<<"type">>,<<"database">>},
+
+    ?assertEqual(Expected, json_to_bsondoc(Input1, Input2, Keys)).
+
 -endif.

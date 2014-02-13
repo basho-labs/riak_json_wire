@@ -84,20 +84,6 @@ handle(Db, #query{collection=Coll, selector=Sel}, Session) ->
             lager:debug("Malformed query, ~p: ~p:~p, ~p", [Sel, Exception, Reason, erlang:get_stacktrace()]), 
             {#reply{documents = [{ok, false, err, <<"Malformed query.">>}]}, Session}
     end;
-    
-
-% find one by i field
-% {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{i,71},[]},4}
-
-    % get_objects(BucketKeyList) %[{Bucket, Key}]
-% find all and create a cursor
-% {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{},[]},4}
-
-% get a count of collection entries
-% {<<"testdb">>,{query,false,false,false,false,<<"$cmd">>,0,-1,{count,<<"testCollection">>,query,{},fields,undefined},[]},4}
-
-% query operators
-% {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{i,{'$gt',20,'$lte',30}},[]},4}
 
 % field select
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{'_id',{<<82,245,204,189,177,41,125,120,154,0,0,1>>}},{name,1,type,1}},4}

@@ -79,7 +79,10 @@ handle(Db, #delete{collection=Coll,singleremove=Single,selector=Sel}, Session) -
     {#reply{documents = Docs}, NewSession} = 
         rjw_command_query:handle(Db, #query{collection=Coll, selector=Sel}, Session),
 
-    handle_delete(Db, Coll, Single, Docs, NewSession);
+    case Docs of
+        [{ok, false, err, Reason}] -> {noreply, Session};
+        _ -> handle_delete(Db, Coll, Single, Docs, NewSession)
+    end;
 
 handle(Db, Command, Session) -> 
     lager:error("Unhandled Command: ~p on Db: ~p~n", [Command, Db]),

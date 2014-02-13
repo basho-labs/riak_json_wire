@@ -205,16 +205,27 @@ class DBTest < Test::Unit::TestCase
     end
 
     def test_findall_regex()
-        # puts coll.find({"name" => /^M/}).to_a
+        coll = @@db.collection("testCollection5")
+        coll.remove
+        coll.insert({"name" => "Risk1"})
+        coll.insert({"name" => "Riak2"})
+        coll.insert({"name" => "Riak3"})
+        coll.insert({"name" => "Riak3"})
+        coll.insert({"name" => "Mongo5"})
 
-        # params = {'search' => 'DB'}
-        # search_string = params['search']
+        sleep(2)
 
-        # # Constructor syntax
-        # puts coll.find({"name" => Regexp.new(search_string)}).to_a
+        assert_equal 4, coll.find({"name" => /^R/}).to_a.length
+        assert_equal 2, coll.find({"name" => /3$/}).to_a.length
+
+        params = {'search' => 'ia'}
+        search_string = params['search']
+
+        # Constructor syntax
+        assert_equal 3, coll.find({"name" => Regexp.new(search_string)}).to_a.length
 
         # # Literal syntax
-        # puts coll.find({"name" => /#{search_string}/}).to_a
+        assert_equal 3, coll.find({"name" => /#{search_string}/}).to_a.length
     end
 
     def test_schema_inferral()

@@ -86,9 +86,6 @@ handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session) ->
             {#reply{documents = [{ok, false, err, <<"Malformed query.">>}]}, Session}
     end;
 
-% field select
-% {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{'_id',{<<82,245,204,189,177,41,125,120,154,0,0,1>>}},{name,1,type,1}},4}
-
 % regex
 % {<<"testdb">>,{query,false,false,false,false,<<"testCollection">>,0,0,{name,{regex,<<"^M">>,<<>>}},[]},4}
 

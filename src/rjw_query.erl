@@ -37,7 +37,7 @@ handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
 
 % find one by id
 handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}, projector=Proj}, Session) ->
-    %% Abstract key formation!
+    %%TODO:Abstract key formation!
     Key = list_to_binary(rjw_util:bin_to_hexstr(BinKey)),
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 

@@ -66,6 +66,7 @@ init(Ref, Socket, Transport, _Opts = []) ->
 
 handle_info({tcp, Socket, BsonPackets}, State=#state{
         socket=Socket}) ->
+    lager:debug("----------------------------------------RJW New Packet: ~n", []),
 
     NewState = get_responses(BsonPackets, State),
 
@@ -101,14 +102,14 @@ get_responses(BsonPackets, State) when is_binary(BsonPackets) ->
 %% @doc Builds and sends responses as they are processed
 get_responses([], State) -> State;
 get_responses([M|Messages], State) ->
-    lager:debug("Message: ~p~n", [M]),
+    lager:debug("RJW Message: ~p~n", [M]),
     Response = get_response(M, State),
     get_responses(Messages, increment_request(respond(Response, State))).
 
 %% @doc Given message, creates Bson response
 get_response({Db, Command, RequestId}, State) ->
     {ReplyType, Reply, Session} = riak_json_wire:dispatch_message(Db, Command, State#state.session),
-    lager:debug("Response: ~p, ~p~n", [ReplyType, Reply]),
+    lager:debug("||||||||||||||||||||||||||||||||||||||||RJW Response: ~p, ~p~n", [ReplyType, Reply]),
     BsonReply = rjw_message:put_reply(
         State#state.socket_request_id, 
         RequestId, 
@@ -122,6 +123,7 @@ respond({noreply, _, Session}, State) ->
     State#state{session=Session};
 respond({reply, Response, Session}, 
         State=#state{socket=Socket, transport=Transport}) when is_binary(Response) ->
+    Transport:setopts(Socket, [{active, once}]),
     Transport:send(Socket, <<
         ?put_int32(byte_size(Response)+4),
         Response/binary

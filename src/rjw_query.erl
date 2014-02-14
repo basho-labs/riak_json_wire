@@ -32,17 +32,12 @@
 % find (the last) one
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
     Key = riak_json_wire:get_last_insert(Db, Coll, Session),
-
-    case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
-        undefined -> 
-            {reply, #reply{documents = []}, Session};
-        List ->
-            JDocument = list_to_binary(List),
-            {reply, #reply{documents = rjw_util:json_to_bsondoc(Key, JDocument)}, Session}
-    end;
+    Docs = rjw_rj:get_document(Db, Coll, Key),
+    {reply, #reply{documents = Docs}, Session};
 
 % find one by id
 handle(Db, #query{collection=Coll, selector={'_id',{BinKey}}, projector=Proj}, Session) ->
+    %% Abstract key formation!
     Key = list_to_binary(rjw_util:bin_to_hexstr(BinKey)),
     case riak_json:get_document(<<Db/binary, $.:8, Coll/binary>>, Key) of
         undefined -> 

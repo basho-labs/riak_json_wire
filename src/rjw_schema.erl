@@ -28,16 +28,8 @@
 -include("riak_json_wire.hrl").
 
 handle(Db, #query{collection=Coll, batchsize=-1,selector={}}, Session) ->
-    case riak_json:get_default_schema(<<Db/binary, $.:8, Coll/binary>>) of
-        {error, _} -> 
-            {reply, #reply{documents = []}, Session};
-        List ->
-            JDocument = list_to_binary(List),
-            lager:debug("Schemabin: ~p", [JDocument]),
-            Proplist = jsonx:decode(JDocument, [{format, proplist}]),
-            Fields = [rjw_util:proplist_to_doclist(X, []) || X <- Proplist],
-            {reply, #reply{documents = {fields, Fields}}, Session}
-    end;
+    Docs = rjw_rj:get_schema(Db, Coll),
+    {reply, #reply{documents = Docs}, Session};
 
 handle(_Db, #insert{}=_Command, Session) -> {noreply, undefined, Session};
 handle(_Db, #update{}=_Command, Session) -> {noreply, undefined, Session};

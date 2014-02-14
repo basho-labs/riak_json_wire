@@ -63,7 +63,7 @@ json_to_bsondoc(Key, AnyJDocument, KeysToInclude) ->
 
     WithId = case Key of
         undefined -> Proplist;
-        K -> [{'_id', {hexstr_to_bin(rj_util:any_to_binary(K)}} | Proplist]
+        K -> [{'_id', {hexstr_to_bin(rj_util:any_to_binary(K))}} | Proplist]
     end,
 
     proplist_to_doclist(WithId, KeysToInclude, []).

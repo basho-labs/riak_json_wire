@@ -38,7 +38,7 @@
 
 % aggregate   Performs aggregation tasks such as group using the aggregation framework.
 % count   Counts the number of documents in a collection.
-%TODO: improve this by executing only the solr query, don't retrieve results
+% TODO: improve this by executing only the solr query, don't retrieve results
 handle(Db, #query{collection= <<"$cmd">>, selector= {count, Coll, query, Sel, fields, Proj}}, Session) -> 
     {reply, #reply{documents = Docs}, NewSession} = rjw_query:handle(Db, #query{collection=Coll, selector=Sel, projector=Proj}, Session),
     {reply, #reply{documents = {ok, true, n, length(Docs)}}, NewSession};

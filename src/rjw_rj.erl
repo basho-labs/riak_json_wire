@@ -22,7 +22,13 @@
 -module(rjw_rj).
 
 -export([
-    get_schema/2
+    get_schema/2,
+    get_document/4,
+    store_document/3,
+    delete_document/3,
+    find/4,
+    proplist_replaceall/2,
+    proplist_to_doclist/2
     ]).
 
 -include_lib("bson/include/bson_binary.hrl").
@@ -39,15 +45,69 @@ get_schema(Db, Coll) ->
         List -> {fields, json_to_bsondocs(List)}
     end.
 
-get_document(Db, Coll, Key) ->
+get_document(Db, Coll, Id, Proj) ->
+    Key = build_key(Id),
     case riak_json:get_document(dbcoll(Db, Coll), Key) of
         undefined -> [];
-        List -> rjw_util:json_to_bsondoc(Key, List)
+        List ->
+            KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
+            json_to_bsondoc(Key, List, KeysToInclude)
+    end.
+
+store_document(Db, Coll, Doc) ->
+    {Key, JDocument} = bsondoc_to_json(Doc),
+    riak_json:store_document(dbcoll(Db, Coll), Key, JDocument),
+    build_id(Key).
+
+delete_document(Db, Coll, Doc) ->
+    Key = get_key(Doc),
+    riak_json:delete_document(dbcoll(Db, Coll), Key).
+
+find(Db, Coll, Sel, Proj) ->
+    try
+        {_, JSel} = bsondoc_to_json(Sel),
+        Query = mochijson2:decode(JSel),
+        SolrQuery = rj_query:from_json(Query, all),
+
+        try
+            %% TODO: move the call to from_json into riak_json:find/2
+            {_, SolrResultString} = riak_json:find(dbcoll(Db, Coll), SolrQuery),
+            JResults = list_to_binary(rj_query_response:format_json_response(SolrResultString, all, SolrQuery)),
+            ResultObject = jsonx:decode(JResults, [{format, proplist}]),
+            %% TODO: get pagination stuff from this: % <<"{\"total\":2,\"page\":0,\"per_page\":100,\"num_pages\":1,\"data\":[{\"_id\":\"52fb05d2b1297d1b18000003\",\"i\":30},{\"_id\":\"52fb0686b1297d24cd000003\",\"i\":30}]}">>
+            Results = proplists:get_value(<<"data">>, ResultObject),
+            KeysToInclude = case Proj of [] -> []; undefined -> []; _ -> proplists:get_keys(bson:fields(Proj)) end,
+            [proplist_to_doclist(X, KeysToInclude, [])|| X <- Results]
+        catch
+            ExceptionInner:ReasonInner ->
+                lager:error("Query failed, ~p: ~p:~p, ~p", [SolrQuery, ExceptionInner, ReasonInner, erlang:get_stacktrace()]), 
+                [{ok, false, err, <<"Query failed.">>}]
+        end
+    catch
+        Exception:Reason ->
+            lager:debug("Malformed query, ~p: ~p:~p, ~p", [Sel, Exception, Reason, erlang:get_stacktrace()]), 
+            [{ok, false, err, <<"Malformed query.">>}]
     end.
 
 %%% =================================================== internal functions
 
+%% @doc create a hex string key for Riak
+build_key(Id) ->
+    list_to_binary(rjw_util:bin_to_hexstr(Id)).
+
+%% @doc create a binary bson id for clients
+build_id(Key) ->
+    hexstr_to_bin(rj_util:any_to_list(Key)).
+
 dbcoll(Db, Coll) -> <<Db/binary, $.:8, Coll/binary>>.
+
+%% TODO: make get_id too and use it below
+get_key(Doc) ->
+    DocList = bson:fields(Doc),
+    case proplists:get_value('_id', DocList) of
+        undefined -> proplists:get_value(<<"_id">>, DocList);
+        {K} -> build_key(K)
+    end.
 
 json_to_bsondocs(AnyJDocument) ->
     JDocument = rj_util:any_to_binary(AnyJDocument),
@@ -63,7 +123,7 @@ json_to_bsondoc(Key, AnyJDocument, KeysToInclude) ->
 
     WithId = case Key of
         undefined -> Proplist;
-        K -> [{'_id', {hexstr_to_bin(rj_util:any_to_binary(K))}} | Proplist]
+        K -> [{'_id', {build_id(K)}} | Proplist]
     end,
 
     proplist_to_doclist(WithId, KeysToInclude, []).
@@ -161,7 +221,7 @@ json_test() ->
 json_list_test() ->
     Input = <<"[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"type\",\"type\":\"string\"},{\"name\":\"count\",\"type\":\"number\"}]">>,
     Proplist = jsonx:decode(Input, [{format, proplist}]),
-    Docs = [rjw_util:proplist_to_doclist(X, []) || X <- Proplist],
+    Docs = [proplist_to_doclist(X, []) || X <- Proplist],
     
     ?assertEqual([{<<"name">>,<<"name">>,<<"type">>,<<"string">>},
                   {<<"name">>,<<"type">>,<<"type">>,<<"string">>},

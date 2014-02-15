@@ -93,7 +93,7 @@ find(Db, Coll, Sel, Proj) ->
 
 %% @doc create a hex string key for Riak
 build_key(Id) ->
-    list_to_binary(rjw_util:bin_to_hexstr(Id)).
+    list_to_binary(bin_to_hexstr(Id)).
 
 %% @doc create a binary bson id for clients
 build_id(Key) ->
@@ -112,10 +112,7 @@ get_key(Doc) ->
 json_to_bsondocs(AnyJDocument) ->
     JDocument = rj_util:any_to_binary(AnyJDocument),
     Proplist = jsonx:decode(JDocument, [{format, proplist}]),
-    [rjw_util:proplist_to_doclist(X, []) || X <- Proplist].
-
-json_to_bsondoc(Key, Json) ->
-    json_to_bsondoc(Key, Json, []).
+    [proplist_to_doclist(X, []) || X <- Proplist].
 
 json_to_bsondoc(Key, AnyJDocument, KeysToInclude) ->
     JDocument = rj_util:any_to_binary(AnyJDocument),

@@ -1,4 +1,4 @@
-riak_json_wire
+Riango
 ==============
 
 Wire Protocol interface for RiakJson
